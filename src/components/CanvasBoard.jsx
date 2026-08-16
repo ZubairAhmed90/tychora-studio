@@ -252,7 +252,7 @@ export default function CanvasBoard({
                       padding: el.badge ? '22%' : 0,
                     }}
                   >
-                    <IconGlyph name={el.icon} color={el.badge ? el.badgeInk || '#F7F5F1' : el.color || '#12151A'} />
+                    <IconGlyph name={el.icon} color={el.badge ? el.badgeInk || '#F7F5F1' : el.color || '#12151A'} className="w-full h-full" />
                   </div>
                 )}
                 {el.type === 'emoji' && (

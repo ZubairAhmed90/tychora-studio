@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { MAX_SAVED } from '../lib/storage';
 import { SIZES } from '../lib/brand';
 import { TEMPLATES, blankDesign } from '../lib/templates';
+import IconGlyph from './IconGlyph';
 
 function Mini({ design }) {
   const s = Math.min(220 / design.format.w, 140 / design.format.h);
@@ -40,6 +41,7 @@ function Mini({ design }) {
             >
               {el.type === 'text' ? <span className="block leading-tight">{el.content}</span> : null}
               {el.type === 'image' && el.src ? <img src={el.src} alt="" className="w-full h-full object-cover" /> : null}
+              {el.type === 'icon' ? <IconGlyph name={el.icon} color={el.color || '#12151A'} className="w-full h-full" /> : null}
               {el.type === 'qr' ? <div className="w-full h-full" style={{ background: el.bg || '#F7F5F1' }} /> : null}
             </div>
           ))}

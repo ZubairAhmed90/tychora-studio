@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { EMOJI_GROUPS, ICONS, firstGrapheme } from '../lib/stickers';
 import IconGlyph from './IconGlyph';
 
-export default function StickerPanel({ ink = '#12151A', onAddIcon, onAddEmoji }) {
+export default function StickerPanel({ onAddIcon, onAddEmoji }) {
   const [tab, setTab] = useState('icons');
   const [group, setGroup] = useState(EMOJI_GROUPS[0].id);
   const [custom, setCustom] = useState('');
@@ -37,10 +37,10 @@ export default function StickerPanel({ ink = '#12151A', onAddIcon, onAddEmoji })
               key={item.id}
               type="button"
               title={item.label}
-              className="aspect-square border border-line hover:border-ink hover:bg-white p-1.5"
+              className="aspect-square border border-line hover:border-ink hover:bg-white p-1.5 flex items-center justify-center"
               onClick={() => onAddIcon(item.id)}
             >
-              <IconGlyph name={item.id} color={ink} />
+              <IconGlyph name={item.id} color="#12151A" className="w-5 h-5" />
             </button>
           ))}
         </div>

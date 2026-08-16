@@ -26,7 +26,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
   const [help, setHelp] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const history = useRef([initial]);
+  const history = useRef([normalizeDesign(initial)]);
   const histIndex = useRef(0);
   const fileRef = useRef(null);
   const bgFileRef = useRef(null);
@@ -99,18 +99,30 @@ export default function Editor({ design: initial, onBack, onSaved }) {
   };
 
   const addEl = (el) => {
-    const maxZ = design.elements.reduce((m, item) => Math.max(m, item.z || 0), 0);
-    const next = { ...el, z: maxZ + 1, opacity: 1 };
-    push({ ...design, elements: [...design.elements, next] });
+    const d = designRef.current;
+    const maxZ = d.elements.reduce((m, item) => Math.max(m, item.z || 0), 0);
+    const next = { ...el, z: maxZ + 1, opacity: el.opacity == null ? 1 : el.opacity, locked: false };
+    push({ ...d, elements: [...d.elements, next] });
     setSelectedId(next.id);
   };
 
   const removeSelected = () => {
-    if (!selectedId) return;
-    const el = design.elements.find((item) => item.id === selectedId);
-    if (el?.locked) return;
-    push({ ...design, elements: design.elements.filter((item) => item.id !== selectedId) });
+    const id = selectedId;
+    if (!id) {
+      flash('Select a layer first');
+      return;
+    }
+    const d = designRef.current;
+    push({ ...d, elements: d.elements.filter((item) => item.id !== id) });
     setSelectedId(null);
+    flash('Deleted');
+  };
+
+  const removeLayer = (id) => {
+    const d = designRef.current;
+    push({ ...d, elements: d.elements.filter((item) => item.id !== id) });
+    if (selectedId === id) setSelectedId(null);
+    flash('Deleted');
   };
 
   const duplicateSelected = () => {
@@ -208,7 +220,9 @@ export default function Editor({ design: initial, onBack, onSaved }) {
   };
 
   const save = () => {
-    const list = upsertPost(syncSlide(designRef.current));
+    const snapshot = syncSlide(designRef.current);
+    setDesign(snapshot);
+    const list = upsertPost(snapshot);
     onSaved(list);
     setDirty(false);
     flash(list.length >= MAX_SAVED ? `Saved (${list.length}/${MAX_SAVED})` : 'Saved on this computer');
@@ -283,7 +297,9 @@ export default function Editor({ design: initial, onBack, onSaved }) {
   useEffect(() => {
     if (!dirty) return undefined;
     const t = setTimeout(() => {
-      upsertPost(syncSlide(designRef.current));
+      const snapshot = syncSlide(designRef.current);
+      const list = upsertPost(snapshot);
+      onSaved(list);
       setDirty(false);
     }, 1200);
     return () => clearTimeout(t);
@@ -361,7 +377,10 @@ export default function Editor({ design: initial, onBack, onSaved }) {
         </button>
         <input
           value={design.name}
-          onChange={(e) => setDesign({ ...design, name: e.target.value })}
+          onChange={(e) => {
+            setDesign({ ...design, name: e.target.value });
+            setDirty(true);
+          }}
           className="flex-1 max-w-xs bg-transparent font-semibold tracking-wide outline-none border-b border-transparent focus:border-ink"
         />
         <span className="text-xs text-mute hidden lg:inline">
@@ -508,11 +527,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
               QR code
             </button>
           </div>
-          <StickerPanel
-            ink={design.background?.value === INK ? PAPER : INK}
-            onAddIcon={addIcon}
-            onAddEmoji={addEmoji}
-          />
+          <StickerPanel onAddIcon={addIcon} onAddEmoji={addEmoji} />
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) addImageFromFile(f); }} />
           <input ref={bgFileRef} type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; const src = await fileToDataUrl(f); push({ ...design, background: { ...design.background, image: src } }); }} />
 
@@ -619,7 +634,8 @@ export default function Editor({ design: initial, onBack, onSaved }) {
             placeholder="Write the post text to paste with the image…"
             value={design.caption || ''}
             onChange={(e) => {
-              setDesign({ ...design, caption: e.target.value });
+              const next = { ...designRef.current, caption: e.target.value };
+              setDesign(next);
               setDirty(true);
             }}
           />
@@ -628,7 +644,8 @@ export default function Editor({ design: initial, onBack, onSaved }) {
             placeholder="#Tychora #CRM"
             value={design.hashtags || ''}
             onChange={(e) => {
-              setDesign({ ...design, hashtags: e.target.value });
+              const next = { ...designRef.current, hashtags: e.target.value };
+              setDesign(next);
               setDirty(true);
             }}
           />
@@ -651,22 +668,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
 
           {!selected ? (
             <div>
-              <p className="text-sm text-mute mb-4">Select a layer. Drag to move. Arrow keys nudge. Drop a photo onto the canvas.</p>
-              <p className="text-[10px] tracking-[0.2em] uppercase text-mute mb-2">Layers</p>
-              <div className="flex flex-col gap-1">
-                {[...design.elements].sort((a, b) => (b.z || 0) - (a.z || 0)).map((el) => (
-                  <button
-                    key={el.id}
-                    type="button"
-                    className={`text-left text-xs px-2 py-1.5 border ${el.id === selectedId ? 'border-ink' : 'border-line'}`}
-                    onClick={() => setSelectedId(el.id)}
-                  >
-                    {el.hidden ? '(hidden) ' : ''}
-                    {el.locked ? '🔒 ' : ''}
-                    {el.type === 'text' ? el.content.slice(0, 28) : el.type === 'emoji' ? el.content : el.type === 'icon' ? `icon · ${el.icon}` : el.type === 'qr' ? 'QR' : el.type}
-                  </button>
-                ))}
-              </div>
+              <p className="text-sm text-mute mb-4">Select a layer. Drag to move. Arrow keys nudge. Drop a photo onto the canvas. Every layer can be edited, moved, or deleted. Save keeps the draft on this computer.</p>
             </div>
           ) : (
             <div className="space-y-3 text-sm">
@@ -775,10 +777,10 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                         key={item.id}
                         type="button"
                         title={item.label}
-                        className={`aspect-square border p-1 ${selected.icon === item.id ? 'border-ink' : 'border-line'}`}
+                        className={`aspect-square border p-1 flex items-center justify-center ${selected.icon === item.id ? 'border-ink' : 'border-line'}`}
                         onClick={() => patchEl(selected.id, { icon: item.id })}
                       >
-                        <IconGlyph name={item.id} color={selected.color || INK} />
+                        <IconGlyph name={item.id} color={INK} className="w-4 h-4" />
                       </button>
                     ))}
                   </div>
@@ -900,6 +902,26 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                   </label>
                 </>
               )}
+              <div className="grid grid-cols-2 gap-2">
+                {['x', 'y', 'w', 'h'].map((key) => (
+                  <label key={key} className="text-xs text-mute uppercase">
+                    {key}
+                    <input
+                      type="number"
+                      className="w-full border border-line px-2 py-1 bg-transparent"
+                      value={Math.round(selected[key] || 0)}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        if (['icon', 'emoji', 'qr'].includes(selected.type) && (key === 'w' || key === 'h')) {
+                          patchEl(selected.id, { w: n, h: n });
+                          return;
+                        }
+                        patchEl(selected.id, { [key]: n });
+                      }}
+                    />
+                  </label>
+                ))}
+              </div>
               <label className="text-xs text-mute block">Rotate
                 <input type="range" min="-180" max="180" className="w-full" value={selected.rotation || 0} onChange={(e) => patchEl(selected.id, { rotation: Number(e.target.value) })} />
               </label>
@@ -918,10 +940,42 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                 <button type="button" className="border border-line py-2" onClick={() => patchEl(selected.id, { locked: !selected.locked })}>{selected.locked ? 'Unlock' : 'Lock'}</button>
                 <button type="button" className="border border-line py-2" onClick={() => patchEl(selected.id, { hidden: !selected.hidden })}>{selected.hidden ? 'Show' : 'Hide'}</button>
                 <button type="button" className="border border-line py-2" onClick={duplicateSelected}>Duplicate</button>
-                <button type="button" className="border border-primary-600 text-primary-600 py-2" onClick={removeSelected}>Delete</button>
+                <button
+                  type="button"
+                  className="border border-primary-600 text-primary-600 py-2"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={removeSelected}
+                >
+                  Delete
+                </button>
               </div>
             </div>
           )}
+          <p className="text-[10px] tracking-[0.2em] uppercase text-mute mt-5 mb-2">Layers</p>
+          <div className="flex flex-col gap-1">
+            {[...design.elements].sort((a, b) => (b.z || 0) - (a.z || 0)).map((el) => (
+              <div key={el.id} className="flex gap-1">
+                <button
+                  type="button"
+                  className={`flex-1 text-left text-xs px-2 py-1.5 border min-w-0 ${el.id === selectedId ? 'border-ink' : 'border-line'}`}
+                  onClick={() => setSelectedId(el.id)}
+                >
+                  {el.hidden ? '(hidden) ' : ''}
+                  {el.locked ? '🔒 ' : ''}
+                  {el.type === 'text' ? el.content.slice(0, 28) : el.type === 'emoji' ? el.content : el.type === 'icon' ? `icon · ${el.icon}` : el.type === 'qr' ? 'QR' : el.type}
+                </button>
+                <button
+                  type="button"
+                  className="px-2 border border-line text-primary-600 text-sm shrink-0"
+                  title="Delete layer"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => removeLayer(el.id)}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
         </aside>
       </div>
       {preview && <Preview design={design} onClose={() => setPreview(false)} />}
@@ -944,7 +998,9 @@ export default function Editor({ design: initial, onBack, onSaved }) {
               <li>Ctrl+Z undo · Ctrl+Y redo</li>
               <li>Ctrl+D duplicate · Ctrl+C / V copy layer</li>
               <li>Arrows nudge · Shift+arrows 10px</li>
-              <li>Delete remove layer</li>
+              <li>Delete or × in Layers removes a layer (then Ctrl+Z to undo)</li>
+              <li>Every layer is editable — text, logo, icon, photo, QR</li>
+              <li>Save / autosave keeps the draft on this computer</li>
               <li>Click an icon or emoji to drop it on the canvas</li>
               <li>Icons and emojis stay square when you resize</li>
               <li>Double-click an emoji to change it</li>

@@ -1,30 +1,38 @@
 import { uid } from './brand';
 
-export function normalizeDesign(raw) {
-  if (!raw) return raw;
-  if (raw.slides?.length) {
-    const i = Math.min(Math.max(0, raw.slideIndex || 0), raw.slides.length - 1);
-    const slide = raw.slides[i];
+function ensureSlides(design) {
+  if (!design) return design;
+  if (design.slides?.length) {
+    const i = Math.min(Math.max(0, design.slideIndex || 0), design.slides.length - 1);
     return {
-      ...raw,
+      ...design,
       slideIndex: i,
-      background: slide.background,
-      elements: slide.elements,
-      caption: raw.caption || '',
-      hashtags: raw.hashtags || '',
+      caption: design.caption || '',
+      hashtags: design.hashtags || '',
     };
   }
   return {
-    ...raw,
+    ...design,
     slideIndex: 0,
-    slides: [{ id: uid(), background: raw.background, elements: raw.elements || [] }],
-    caption: raw.caption || '',
-    hashtags: raw.hashtags || '',
+    slides: [{ id: uid(), background: design.background, elements: design.elements || [] }],
+    caption: design.caption || '',
+    hashtags: design.hashtags || '',
+  };
+}
+
+export function normalizeDesign(raw) {
+  const d = ensureSlides(raw);
+  if (!d) return raw;
+  const slide = d.slides[d.slideIndex || 0];
+  return {
+    ...d,
+    background: slide.background,
+    elements: slide.elements,
   };
 }
 
 export function syncSlide(design) {
-  const d = normalizeDesign(design);
+  const d = ensureSlides(design);
   const i = d.slideIndex || 0;
   const slides = d.slides.map((slide, idx) =>
     idx === i ? { ...slide, background: d.background, elements: d.elements } : slide
