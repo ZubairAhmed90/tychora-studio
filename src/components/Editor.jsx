@@ -2,9 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CAPTIONS, COLORS, INK, PAPER, PHRASES, RED, SIZES, uid } from '../lib/brand';
 import { MAX_SAVED, upsertPost } from '../lib/storage';
 import { adaptFormat, addSlide, fullCaption, goSlide, moveSlide, normalizeDesign, removeSlide, syncSlide } from '../lib/design';
-import { copyPngToClipboard, downloadDataUrl, exportDesignPng, fileToDataUrl } from '../lib/exportPng';
+import { copyPngToClipboard, downloadDataUrl, exportCarouselZip, exportDesignPng, fileToDataUrl } from '../lib/exportPng';
 import { EMOJI_GROUPS, ICONS, firstGrapheme } from '../lib/stickers';
+import { QR_PRESETS } from '../lib/qr';
 import CanvasBoard from './CanvasBoard';
+import CropModal from './CropModal';
 import IconGlyph from './IconGlyph';
 import Preview from './Preview';
 import StickerPanel from './StickerPanel';
@@ -22,6 +24,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [preview, setPreview] = useState(false);
   const [help, setHelp] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const history = useRef([initial]);
   const histIndex = useRef(0);
@@ -188,6 +191,17 @@ export default function Editor({ design: initial, onBack, onSaved }) {
     });
   };
 
+  const addQr = (value = 'https://tychora.com') => {
+    addEl({
+      id: uid(),
+      type: 'qr',
+      value,
+      color: design.background?.value === INK ? PAPER : INK,
+      bg: design.background?.value === INK ? INK : PAPER,
+      ...stickerBox(180),
+    });
+  };
+
   const flash = (msg) => {
     setStatus(msg);
     setTimeout(() => setStatus(''), 2200);
@@ -252,6 +266,17 @@ export default function Editor({ design: initial, onBack, onSaved }) {
       downloadDataUrl(url, `${d.name.replace(/\s+/g, '-').toLowerCase()}-slide-${i + 1}.png`);
     }
     flash('Slides downloaded');
+    setExportOpen(false);
+  };
+
+  const downloadZip = async () => {
+    flash('Building zip…');
+    try {
+      await exportCarouselZip(designRef.current);
+      flash('Zip downloaded');
+    } catch {
+      flash('Zip failed — try All slides PNG');
+    }
     setExportOpen(false);
   };
 
@@ -384,6 +409,9 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                 <button type="button" className="block w-full text-left px-3 py-2 hover:bg-white" onClick={downloadCaption}>
                   Caption .txt
                 </button>
+                <button type="button" className="block w-full text-left px-3 py-2 hover:bg-white" onClick={downloadZip}>
+                  Carousel zip
+                </button>
                 <button type="button" className="block w-full text-left px-3 py-2 hover:bg-white" onClick={downloadAllSlides}>
                   All slides PNG
                 </button>
@@ -475,6 +503,9 @@ export default function Editor({ design: initial, onBack, onSaved }) {
               }
             >
               Tychora logo
+            </button>
+            <button type="button" className={toolBtn} onClick={() => addQr('https://tychora.com')}>
+              QR code
             </button>
           </div>
           <StickerPanel
@@ -632,7 +663,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                   >
                     {el.hidden ? '(hidden) ' : ''}
                     {el.locked ? '🔒 ' : ''}
-                    {el.type === 'text' ? el.content.slice(0, 28) : el.type === 'emoji' ? el.content : el.type === 'icon' ? `icon · ${el.icon}` : el.type}
+                    {el.type === 'text' ? el.content.slice(0, 28) : el.type === 'emoji' ? el.content : el.type === 'icon' ? `icon · ${el.icon}` : el.type === 'qr' ? 'QR' : el.type}
                   </button>
                 ))}
               </div>
@@ -812,6 +843,61 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                     />
                     Grayscale
                   </label>
+                  <button type="button" className="w-full border border-line py-2" onClick={() => setCropOpen(true)}>
+                    Crop
+                  </button>
+                  <label className="text-xs text-mute block">Zoom
+                    <input type="range" min="1" max="3" step="0.05" className="w-full" value={selected.zoom || 1} onChange={(e) => patchEl(selected.id, { zoom: Number(e.target.value), fit: 'cover' })} />
+                  </label>
+                  <label className="text-xs text-mute block">Pan X
+                    <input type="range" min="0" max="1" step="0.01" className="w-full" value={selected.panX == null ? 0.5 : selected.panX} onChange={(e) => patchEl(selected.id, { panX: Number(e.target.value), fit: 'cover' })} />
+                  </label>
+                  <label className="text-xs text-mute block">Pan Y
+                    <input type="range" min="0" max="1" step="0.01" className="w-full" value={selected.panY == null ? 0.5 : selected.panY} onChange={(e) => patchEl(selected.id, { panY: Number(e.target.value), fit: 'cover' })} />
+                  </label>
+                </>
+              )}
+              {selected.type === 'qr' && (
+                <>
+                  <label className="text-xs text-mute block">Link
+                    <input
+                      className="w-full border border-line px-2 py-1 bg-transparent"
+                      value={selected.value || ''}
+                      onChange={(e) => patchEl(selected.id, { value: e.target.value })}
+                    />
+                  </label>
+                  <div className="flex gap-1">
+                    {QR_PRESETS.map((p) => (
+                      <button key={p.value} type="button" className="flex-1 border border-line py-1 text-xs" onClick={() => patchEl(selected.id, { value: p.value })}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-mute">Color</p>
+                  <div className="flex flex-wrap gap-2">
+                    {COLORS.map((c) => (
+                      <button key={c} type="button" className="w-6 h-6 border border-line" style={{ background: c }} onClick={() => patchEl(selected.id, { color: c })} />
+                    ))}
+                  </div>
+                  <p className="text-xs text-mute">Background</p>
+                  <div className="flex flex-wrap gap-2">
+                    {COLORS.map((c) => (
+                      <button key={`bg-${c}`} type="button" className="w-6 h-6 border border-line" style={{ background: c }} onClick={() => patchEl(selected.id, { bg: c })} />
+                    ))}
+                  </div>
+                  <label className="text-xs text-mute block">Size
+                    <input
+                      type="range"
+                      min="80"
+                      max="420"
+                      className="w-full"
+                      value={selected.w}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        patchEl(selected.id, { w: n, h: n });
+                      }}
+                    />
+                  </label>
                 </>
               )}
               <label className="text-xs text-mute block">Rotate
@@ -839,6 +925,16 @@ export default function Editor({ design: initial, onBack, onSaved }) {
         </aside>
       </div>
       {preview && <Preview design={design} onClose={() => setPreview(false)} />}
+      {cropOpen && selected?.type === 'image' && (
+        <CropModal
+          el={selected}
+          onClose={() => setCropOpen(false)}
+          onApply={(patch) => {
+            patchEl(selected.id, patch);
+            setCropOpen(false);
+          }}
+        />
+      )}
       {help && (
         <div className="fixed inset-0 z-50 bg-ink/50 flex items-center justify-center p-6" onClick={() => setHelp(false)}>
           <div className="bg-paper border border-line max-w-sm w-full p-5 text-sm" onClick={(e) => e.stopPropagation()}>
@@ -855,7 +951,9 @@ export default function Editor({ design: initial, onBack, onSaved }) {
               <li>Shift+resize keeps aspect ratio</li>
               <li>Drop a photo on the canvas</li>
               <li>Carousel: add slides, ← → to reorder</li>
-              <li>Export caption as .txt with the image</li>
+              <li>Export → Carousel zip for all slides + caption</li>
+              <li>QR code: website or email, drag and resize</li>
+              <li>Photo: Crop, then drag to frame</li>
             </ul>
             <button type="button" className="mt-4 border border-ink px-3 py-1.5" onClick={() => setHelp(false)}>
               Close

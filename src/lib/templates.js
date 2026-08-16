@@ -52,6 +52,39 @@ function logo(partial) {
   };
 }
 
+function iconEl(partial) {
+  return {
+    id: uid(),
+    type: 'icon',
+    icon: 'check',
+    color: INK,
+    x: 72,
+    y: 72,
+    w: 72,
+    h: 72,
+    rotation: 0,
+    z: 4,
+    ...partial,
+  };
+}
+
+function qrEl(partial) {
+  return {
+    id: uid(),
+    type: 'qr',
+    value: 'https://tychora.com',
+    color: INK,
+    bg: PAPER,
+    x: 72,
+    y: 72,
+    w: 160,
+    h: 160,
+    rotation: 0,
+    z: 4,
+    ...partial,
+  };
+}
+
 export function blankDesign(size = SIZES[0], name = 'Untitled post') {
   return {
     id: uid(),
@@ -587,6 +620,156 @@ export const TEMPLATES = [
       ),
   },
   {
+    id: 'hiring',
+    name: 'Hiring / team',
+    blurb: 'LinkedIn square',
+    sizeId: 'linkedin-square',
+    make: () =>
+      base(
+        'linkedin-square',
+        'Hiring / team',
+        { type: 'color', value: INK },
+        [
+          logo({ x: 72, y: 64, inverted: true, w: 300, h: 56, z: 5 }),
+          iconEl({ icon: 'users', color: RED, x: 72, y: 220, w: 64, h: 64, z: 4 }),
+          text({
+            content: 'Need extra engineers,\nnot a whole new vendor?',
+            x: 72,
+            y: 320,
+            w: 920,
+            h: 240,
+            fontSize: 52,
+            fontFamily: 'serif',
+            color: PAPER,
+            z: 3,
+          }),
+          text({
+            content: 'Add our team to yours. Compact. We take the work we can actually staff.',
+            x: 72,
+            y: 620,
+            w: 900,
+            h: 120,
+            fontSize: 24,
+            fontWeight: 400,
+            color: MUTE,
+            z: 3,
+          }),
+          text({
+            content: 'tychora.com',
+            x: 72,
+            y: 960,
+            w: 400,
+            h: 36,
+            fontSize: 18,
+            fontWeight: 600,
+            color: RED,
+            z: 3,
+          }),
+        ]
+      ),
+  },
+  {
+    id: 'client-quote',
+    name: 'Client quote',
+    blurb: 'Facebook post',
+    sizeId: 'facebook',
+    make: () =>
+      base(
+        'facebook',
+        'Client quote',
+        { type: 'color', value: PAPER },
+        [
+          logo({ x: 72, y: 40 }),
+          text({
+            content: '“',
+            x: 64,
+            y: 100,
+            w: 120,
+            h: 90,
+            fontSize: 96,
+            fontFamily: 'serif',
+            color: RED,
+            z: 3,
+          }),
+          text({
+            content: 'They sat with how we already work. Then they built the system around that.',
+            x: 72,
+            y: 220,
+            w: 1050,
+            h: 200,
+            fontSize: 36,
+            fontFamily: 'serif',
+            z: 3,
+          }),
+          text({
+            content: 'Operations lead  ·  Replace with a real name',
+            x: 72,
+            y: 500,
+            w: 800,
+            h: 40,
+            fontSize: 18,
+            fontWeight: 500,
+            color: MUTE,
+            z: 3,
+          }),
+        ]
+      ),
+  },
+  {
+    id: 'event-cta',
+    name: 'Write to us',
+    blurb: 'LinkedIn landscape · QR',
+    sizeId: 'linkedin',
+    make: () =>
+      base(
+        'linkedin',
+        'Write to us',
+        { type: 'color', value: PAPER },
+        [
+          logo({ x: 64, y: 48 }),
+          shape({ x: 64, y: 140, w: 72, h: 6, z: 2 }),
+          text({
+            content: 'Tell us the problem.\nWe say if we are a fit.',
+            x: 64,
+            y: 180,
+            w: 740,
+            h: 200,
+            fontSize: 42,
+            fontFamily: 'serif',
+            z: 3,
+          }),
+          text({
+            content: 'hello@tychora.com',
+            x: 64,
+            y: 430,
+            w: 500,
+            h: 40,
+            fontSize: 22,
+            fontWeight: 600,
+            z: 3,
+          }),
+          text({
+            content: 'Scan for tychora.com',
+            x: 64,
+            y: 530,
+            w: 400,
+            h: 32,
+            fontSize: 16,
+            color: MUTE,
+            z: 3,
+          }),
+          qrEl({ x: 980, y: 200, w: 160, h: 160, z: 4 }),
+        ]
+      ),
+  },
+  {
+    id: 'crm-before-after',
+    name: 'CRM before / after',
+    blurb: 'LinkedIn carousel · 2 slides',
+    sizeId: 'linkedin-square',
+    make: () => makeCrmBeforeAfter(),
+  },
+  {
     id: 'ways-carousel',
     name: 'Ways to work — 3 slides',
     blurb: 'LinkedIn carousel',
@@ -652,6 +835,76 @@ export function makeWaysCarousel() {
     format: { ...size },
     caption: 'Three ways to work with us.\n\n01 Product — ready software.\n02 Project — built for you.\n03 Team — engineers on your team.\n\nWrite to us. We will say if we are a fit.\nhello@tychora.com',
     hashtags: '#Tychora #Product #Project #Team #Karachi',
+    slideIndex: 0,
+    slides,
+    background: slides[0].background,
+    elements: slides[0].elements,
+  };
+}
+
+export function makeCrmBeforeAfter() {
+  const size = SIZES.find((s) => s.id === 'linkedin-square') || SIZES[1];
+  const cards = [
+    {
+      dark: false,
+      kicker: 'Before',
+      title: 'Follow-ups live\nin a spreadsheet.',
+      line: 'Who called, what was said, and when to next — split across chats and files.',
+    },
+    {
+      dark: true,
+      kicker: 'After',
+      title: 'History sits\non the lead.',
+      line: 'The next person who opens the record can see what happened. That is the CRM.',
+    },
+  ];
+  const slides = cards.map((card, i) => ({
+    id: uid(),
+    background: { type: 'color', value: card.dark ? INK : PAPER },
+    elements: [
+      logo({ x: 72, y: 64, inverted: card.dark, z: 5 }),
+      text({ content: card.kicker, x: 72, y: 240, w: 300, h: 40, fontSize: 18, fontWeight: 600, color: RED, z: 3 }),
+      text({
+        content: card.title,
+        x: 72,
+        y: 300,
+        w: 920,
+        h: 220,
+        fontSize: 56,
+        fontFamily: 'serif',
+        color: card.dark ? PAPER : INK,
+        z: 3,
+      }),
+      text({
+        content: card.line,
+        x: 72,
+        y: 560,
+        w: 900,
+        h: 160,
+        fontSize: 26,
+        fontWeight: 400,
+        color: MUTE,
+        z: 3,
+      }),
+      text({
+        content: `${i + 1} / 2   ·   tychora.com`,
+        x: 72,
+        y: 980,
+        w: 800,
+        h: 36,
+        fontSize: 16,
+        color: MUTE,
+        z: 3,
+      }),
+    ],
+  }));
+  return {
+    id: uid(),
+    name: 'CRM before / after',
+    updatedAt: Date.now(),
+    format: { ...size },
+    caption: 'Before: follow-ups in a spreadsheet.\nAfter: history on the lead.\n\nThat is the CRM. Ask if we have a fit.\nhello@tychora.com',
+    hashtags: '#Tychora #CRM #Karachi',
     slideIndex: 0,
     slides,
     background: slides[0].background,

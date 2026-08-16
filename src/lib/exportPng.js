@@ -1,4 +1,6 @@
 import { drawEmoji, drawIcon } from './stickers';
+import { drawQr } from './qr';
+import { fullCaption, syncSlide } from './design';
 
 function wrapLines(ctx, text, maxWidth) {
   const paragraphs = String(text || '').split('\n');
@@ -156,7 +158,13 @@ export async function exportDesignPng(design, { scale = 1, type = 'image/png', q
           const dh = img.height * scaleFit;
           ctx.drawImage(img, el.x + (el.w - dw) / 2, el.y + (el.h - dh) / 2, dw, dh);
         } else {
-          ctx.drawImage(img, el.x, el.y, el.w, el.h);
+          const zoom = Math.max(1, Number(el.zoom) || 1);
+          const panX = el.panX == null ? 0.5 : Number(el.panX);
+          const panY = el.panY == null ? 0.5 : Number(el.panY);
+          const scaleCover = Math.max(el.w / img.width, el.h / img.height) * zoom;
+          const dw = img.width * scaleCover;
+          const dh = img.height * scaleCover;
+          ctx.drawImage(img, el.x + (el.w - dw) * panX, el.y + (el.h - dh) * panY, dw, dh);
         }
         if (el.overlayOpacity) {
           ctx.fillStyle = el.overlay || '#12151A';
@@ -183,6 +191,10 @@ export async function exportDesignPng(design, { scale = 1, type = 'image/png', q
       drawEmoji(ctx, el);
     }
 
+    if (el.type === 'qr') {
+      drawQr(ctx, el);
+    }
+
     ctx.restore();
   }
 
@@ -194,6 +206,29 @@ export function downloadDataUrl(dataUrl, filename) {
   a.href = dataUrl;
   a.download = filename;
   a.click();
+}
+
+export function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  downloadDataUrl(url, filename);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+export async function exportCarouselZip(design, { scale = 2 } = {}) {
+  const JSZip = (await import('jszip')).default;
+  const d = syncSlide(design);
+  const zip = new JSZip();
+  const slug = (d.name || 'tychora-post').replace(/\s+/g, '-').toLowerCase();
+  for (let i = 0; i < d.slides.length; i += 1) {
+    const slide = d.slides[i];
+    const one = { ...d, background: slide.background, elements: slide.elements };
+    const url = await exportDesignPng(one, { scale, type: 'image/png' });
+    zip.file(`${slug}-${String(i + 1).padStart(2, '0')}.png`, url.split(',')[1], { base64: true });
+  }
+  const cap = fullCaption(d);
+  if (cap) zip.file(`${slug}-caption.txt`, cap);
+  const blob = await zip.generateAsync({ type: 'blob' });
+  downloadBlob(blob, `${slug}.zip`);
 }
 
 export async function copyPngToClipboard(dataUrl) {

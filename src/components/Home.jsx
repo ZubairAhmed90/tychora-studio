@@ -40,6 +40,7 @@ function Mini({ design }) {
             >
               {el.type === 'text' ? <span className="block leading-tight">{el.content}</span> : null}
               {el.type === 'image' && el.src ? <img src={el.src} alt="" className="w-full h-full object-cover" /> : null}
+              {el.type === 'qr' ? <div className="w-full h-full" style={{ background: el.bg || '#F7F5F1' }} /> : null}
             </div>
           ))}
       </div>

@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { getIcon } from '../lib/stickers';
 import IconGlyph from './IconGlyph';
+import QrMark from './QrMark';
 
 function LogoMark({ el }) {
   const inverted = el.inverted;
@@ -67,7 +68,7 @@ export default function CanvasBoard({
       w: el.w,
       h: el.h,
       ratio: el.w / Math.max(1, el.h),
-      lockRatio: el.type === 'icon' || el.type === 'emoji',
+      lockRatio: el.type === 'icon' || el.type === 'emoji' || el.type === 'qr',
     };
   };
 
@@ -227,7 +228,13 @@ export default function CanvasBoard({
                       src={el.src}
                       alt=""
                       className="w-full h-full pointer-events-none select-none"
-                      style={{ objectFit: el.fit || 'cover', filter: el.filter === 'grayscale' ? 'grayscale(1)' : undefined }}
+                      style={{
+                        objectFit: el.fit || 'cover',
+                        objectPosition: `${(el.panX == null ? 0.5 : el.panX) * 100}% ${(el.panY == null ? 0.5 : el.panY) * 100}%`,
+                        transform: el.fit === 'contain' ? undefined : `scale(${Math.max(1, el.zoom || 1)})`,
+                        transformOrigin: `${(el.panX == null ? 0.5 : el.panX) * 100}% ${(el.panY == null ? 0.5 : el.panY) * 100}%`,
+                        filter: el.filter === 'grayscale' ? 'grayscale(1)' : undefined,
+                      }}
                       draggable={false}
                     />
                     {el.overlayOpacity ? (
@@ -256,6 +263,7 @@ export default function CanvasBoard({
                     {el.content}
                   </div>
                 )}
+                {el.type === 'qr' && <QrMark el={el} />}
                 {selected && !el.locked && (
                   <button
                     type="button"
