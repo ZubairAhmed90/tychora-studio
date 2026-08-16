@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    background: #F7F5F1;
+    color: #12151A;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+input[type='color'] {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
