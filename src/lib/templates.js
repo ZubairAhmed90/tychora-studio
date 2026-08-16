@@ -586,4 +586,75 @@ export const TEMPLATES = [
         ]
       ),
   },
+  {
+    id: 'ways-carousel',
+    name: 'Ways to work — 3 slides',
+    blurb: 'LinkedIn carousel',
+    sizeId: 'linkedin-square',
+    make: () => makeWaysCarousel(),
+  },
 ];
+
+export function makeWaysCarousel() {
+  const size = SIZES.find((s) => s.id === 'linkedin-square') || SIZES[1];
+  const cards = [
+    { n: '01', title: 'Product', line: 'Prepaid and ready systems we can implement for how your team already works.' },
+    { n: '02', title: 'Project', line: 'New CRM, ERP, or custom software when a product is not enough.' },
+    { n: '03', title: 'Team', line: 'Add our engineers to yours. Extra hands, not a whole new vendor.' },
+  ];
+  const slides = cards.map((card, i) => {
+    const dark = i === 1;
+    return {
+      id: uid(),
+      background: { type: 'color', value: dark ? INK : PAPER },
+      elements: [
+        logo({ x: 72, y: 64, inverted: dark, z: 5 }),
+        text({ content: card.n, x: 72, y: 260, w: 200, h: 40, fontSize: 18, fontWeight: 600, color: RED, z: 3 }),
+        text({
+          content: card.title,
+          x: 72,
+          y: 320,
+          w: 900,
+          h: 90,
+          fontSize: 64,
+          fontFamily: 'serif',
+          color: dark ? PAPER : INK,
+          z: 3,
+        }),
+        text({
+          content: card.line,
+          x: 72,
+          y: 460,
+          w: 900,
+          h: 180,
+          fontSize: 28,
+          fontWeight: 400,
+          color: MUTE,
+          z: 3,
+        }),
+        text({
+          content: `${i + 1} / 3   ·   tychora.com`,
+          x: 72,
+          y: 980,
+          w: 800,
+          h: 36,
+          fontSize: 16,
+          color: MUTE,
+          z: 3,
+        }),
+      ],
+    };
+  });
+  return {
+    id: uid(),
+    name: 'Ways to work — carousel',
+    updatedAt: Date.now(),
+    format: { ...size },
+    caption: 'Three ways to work with us.\n\n01 Product — ready software.\n02 Project — built for you.\n03 Team — engineers on your team.\n\nWrite to us. We will say if we are a fit.\nhello@tychora.com',
+    hashtags: '#Tychora #Product #Project #Team #Karachi',
+    slideIndex: 0,
+    slides,
+    background: slides[0].background,
+    elements: slides[0].elements,
+  };
+}

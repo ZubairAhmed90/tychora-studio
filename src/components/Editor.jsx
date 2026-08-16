@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CAPTIONS, COLORS, INK, PAPER, PHRASES, RED, SIZES, uid } from '../lib/brand';
 import { MAX_SAVED, upsertPost } from '../lib/storage';
-import { adaptFormat, addSlide, fullCaption, goSlide, normalizeDesign, removeSlide, syncSlide } from '../lib/design';
+import { adaptFormat, addSlide, fullCaption, goSlide, moveSlide, normalizeDesign, removeSlide, syncSlide } from '../lib/design';
 import { copyPngToClipboard, downloadDataUrl, exportDesignPng, fileToDataUrl } from '../lib/exportPng';
+import { EMOJI_GROUPS, ICONS, firstGrapheme } from '../lib/stickers';
 import CanvasBoard from './CanvasBoard';
+import IconGlyph from './IconGlyph';
 import Preview from './Preview';
+import StickerPanel from './StickerPanel';
 
 const SNAP = 12;
 
@@ -14,6 +17,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
   const [zoom, setZoom] = useState(0.5);
   const [status, setStatus] = useState('');
   const [showGrid, setShowGrid] = useState(false);
+  const [showSafe, setShowSafe] = useState(false);
   const [guides, setGuides] = useState({});
   const [exportOpen, setExportOpen] = useState(false);
   const [preview, setPreview] = useState(false);
@@ -152,6 +156,38 @@ export default function Editor({ design: initial, onBack, onSaved }) {
     addEl({ id: uid(), type: 'image', src, x: 80, y: 160, w: 480, h: 320, rotation: 0, fit: 'cover' });
   };
 
+  const stickerBox = (size = 96) => ({
+    x: Math.round((design.format.w - size) / 2),
+    y: Math.round((design.format.h - size) / 2),
+    w: size,
+    h: size,
+    rotation: 0,
+  });
+
+  const addIcon = (iconId) => {
+    addEl({
+      id: uid(),
+      type: 'icon',
+      icon: iconId,
+      color: design.background?.value === INK ? PAPER : INK,
+      badge: false,
+      badgeFill: RED,
+      badgeInk: PAPER,
+      ...stickerBox(),
+    });
+  };
+
+  const addEmoji = (mark) => {
+    const content = firstGrapheme(mark);
+    if (!content) return;
+    addEl({
+      id: uid(),
+      type: 'emoji',
+      content,
+      ...stickerBox(112),
+    });
+  };
+
   const flash = (msg) => {
     setStatus(msg);
     setTimeout(() => setStatus(''), 2200);
@@ -192,6 +228,18 @@ export default function Editor({ design: initial, onBack, onSaved }) {
     }
     await navigator.clipboard.writeText(text);
     flash('Caption copied');
+  };
+
+  const downloadCaption = () => {
+    const text = fullCaption(designRef.current);
+    if (!text) {
+      flash('No caption yet');
+      return;
+    }
+    const blob = new Blob([text], { type: 'text/plain' });
+    downloadDataUrl(URL.createObjectURL(blob), `${designRef.current.name.replace(/\s+/g, '-').toLowerCase()}-caption.txt`);
+    flash('Caption file downloaded');
+    setExportOpen(false);
   };
 
   const downloadAllSlides = async () => {
@@ -333,6 +381,9 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                 <button type="button" className="block w-full text-left px-3 py-2 hover:bg-white" onClick={copyCaption}>
                   Copy caption
                 </button>
+                <button type="button" className="block w-full text-left px-3 py-2 hover:bg-white" onClick={downloadCaption}>
+                  Caption .txt
+                </button>
                 <button type="button" className="block w-full text-left px-3 py-2 hover:bg-white" onClick={downloadAllSlides}>
                   All slides PNG
                 </button>
@@ -359,6 +410,12 @@ export default function Editor({ design: initial, onBack, onSaved }) {
         ))}
         <button type="button" className="px-2 py-1 text-xs border border-line shrink-0" onClick={() => { push(addSlide(design)); setSelectedId(null); }}>
           + Slide
+        </button>
+        <button type="button" className="px-2 py-1 text-xs border border-line shrink-0" onClick={() => push(moveSlide(design, -1))}>
+          ←
+        </button>
+        <button type="button" className="px-2 py-1 text-xs border border-line shrink-0" onClick={() => push(moveSlide(design, 1))}>
+          →
         </button>
         {(design.slides || []).length > 1 && (
           <button type="button" className="px-2 py-1 text-xs text-primary-600 shrink-0" onClick={() => { push(removeSlide(design)); setSelectedId(null); }}>
@@ -392,6 +449,15 @@ export default function Editor({ design: initial, onBack, onSaved }) {
             <button type="button" className={toolBtn} onClick={() => addShape('circle')}>
               Circle
             </button>
+            <button type="button" className={toolBtn} onClick={() => addText({ content: '01', fontSize: 28, fontWeight: 700, fontFamily: 'sans', h: 48 })}>
+              Number stamp
+            </button>
+            <button type="button" className={toolBtn} onClick={() => addText({ content: '→', fontSize: 64, fontWeight: 400, fontFamily: 'serif', h: 80 })}>
+              Arrow
+            </button>
+            <button type="button" className={toolBtn} onClick={() => addText({ content: '“', fontSize: 96, fontWeight: 400, fontFamily: 'serif', h: 100 })}>
+              Quote mark
+            </button>
             <button
               type="button"
               className={toolBtn}
@@ -411,6 +477,11 @@ export default function Editor({ design: initial, onBack, onSaved }) {
               Tychora logo
             </button>
           </div>
+          <StickerPanel
+            ink={design.background?.value === INK ? PAPER : INK}
+            onAddIcon={addIcon}
+            onAddEmoji={addEmoji}
+          />
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) addImageFromFile(f); }} />
           <input ref={bgFileRef} type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; const src = await fileToDataUrl(f); push({ ...design, background: { ...design.background, image: src } }); }} />
 
@@ -465,6 +536,10 @@ export default function Editor({ design: initial, onBack, onSaved }) {
             <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />
             Grid
           </label>
+          <label className="flex items-center gap-2 text-sm mb-2">
+            <input type="checkbox" checked={showSafe} onChange={(e) => setShowSafe(e.target.checked)} />
+            Safe margins
+          </label>
           <div className="flex gap-1 mb-1">
             <button type="button" className="flex-1 border border-line text-xs py-1" onClick={() => setZoom(0.35)}>
               Fit
@@ -485,15 +560,25 @@ export default function Editor({ design: initial, onBack, onSaved }) {
           onSelect={setSelectedId}
           zoom={zoom}
           showGrid={showGrid}
+          showSafe={showSafe}
           guides={guides}
           onDropFile={addImageFromFile}
           onEditText={(id) => {
             const el = design.elements.find((item) => item.id === id);
             if (!el) return;
+            if (el.type === 'emoji') {
+              const next = window.prompt('Change emoji', el.content);
+              if (next != null) patchEl(id, { content: firstGrapheme(next) || el.content });
+              return;
+            }
             const next = window.prompt('Edit text', el.content);
             if (next != null) patchEl(id, { content: next });
           }}
           onChangeElement={(id, patch, opts) => livePatch(id, patch, opts)}
+          onDragEnd={() => {
+            setGuides({});
+            push(designRef.current);
+          }}
         />
 
         <aside className="w-72 border-l border-line p-4 overflow-auto shrink-0 bg-paper">
@@ -547,7 +632,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                   >
                     {el.hidden ? '(hidden) ' : ''}
                     {el.locked ? '🔒 ' : ''}
-                    {el.type === 'text' ? el.content.slice(0, 28) : el.type}
+                    {el.type === 'text' ? el.content.slice(0, 28) : el.type === 'emoji' ? el.content : el.type === 'icon' ? `icon · ${el.icon}` : el.type}
                   </button>
                 ))}
               </div>
@@ -588,6 +673,10 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                       <button key={align} type="button" className="flex-1 border border-line py-1 capitalize" onClick={() => patchEl(selected.id, { align })}>{align}</button>
                     ))}
                   </div>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={!!selected.shadow} onChange={(e) => patchEl(selected.id, { shadow: e.target.checked })} />
+                    Shadow
+                  </label>
                 </>
               )}
               {(selected.type === 'text' || selected.type === 'shape') && (
@@ -612,6 +701,95 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                   Light logo
                 </label>
               )}
+              {selected.type === 'icon' && (
+                <>
+                  <p className="text-xs text-mute">Color</p>
+                  <div className="flex flex-wrap gap-2">
+                    {COLORS.map((c) => (
+                      <button key={c} type="button" className="w-6 h-6 border border-line" style={{ background: c }} onClick={() => patchEl(selected.id, { color: c })} />
+                    ))}
+                    <input type="color" value={selected.color || INK} onChange={(e) => patchEl(selected.id, { color: e.target.value })} />
+                  </div>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={!!selected.badge} onChange={(e) => patchEl(selected.id, { badge: e.target.checked })} />
+                    Circle badge
+                  </label>
+                  {selected.badge && (
+                    <>
+                      <p className="text-xs text-mute">Badge fill</p>
+                      <div className="flex flex-wrap gap-2">
+                        {COLORS.map((c) => (
+                          <button key={c} type="button" className="w-6 h-6 border border-line" style={{ background: c }} onClick={() => patchEl(selected.id, { badgeFill: c })} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  <label className="text-xs text-mute block">Size
+                    <input
+                      type="range"
+                      min="40"
+                      max="360"
+                      className="w-full"
+                      value={selected.w}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        patchEl(selected.id, { w: n, h: n });
+                      }}
+                    />
+                  </label>
+                  <p className="text-xs text-mute">Replace</p>
+                  <div className="grid grid-cols-6 gap-1 max-h-36 overflow-auto">
+                    {ICONS.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        title={item.label}
+                        className={`aspect-square border p-1 ${selected.icon === item.id ? 'border-ink' : 'border-line'}`}
+                        onClick={() => patchEl(selected.id, { icon: item.id })}
+                      >
+                        <IconGlyph name={item.id} color={selected.color || INK} />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {selected.type === 'emoji' && (
+                <>
+                  <label className="text-xs text-mute block">Emoji
+                    <input
+                      className="w-full border border-line px-2 py-1 bg-transparent text-2xl"
+                      value={selected.content}
+                      onChange={(e) => patchEl(selected.id, { content: firstGrapheme(e.target.value) || selected.content })}
+                    />
+                  </label>
+                  <label className="text-xs text-mute block">Size
+                    <input
+                      type="range"
+                      min="40"
+                      max="400"
+                      className="w-full"
+                      value={selected.w}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        patchEl(selected.id, { w: n, h: n });
+                      }}
+                    />
+                  </label>
+                  <p className="text-xs text-mute">Replace</p>
+                  <div className="grid grid-cols-6 gap-1 max-h-40 overflow-auto">
+                    {EMOJI_GROUPS.flatMap((g) => g.items).map((mark, i) => (
+                      <button
+                        key={`${mark}-${i}`}
+                        type="button"
+                        className={`aspect-square border text-lg ${selected.content === mark ? 'border-ink' : 'border-line'}`}
+                        onClick={() => patchEl(selected.id, { content: mark })}
+                      >
+                        {mark}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
               {selected.type === 'image' && (
                 <>
                   <button type="button" className="w-full border border-line py-2" onClick={() => fileRef.current?.click()}>Replace photo</button>
@@ -625,6 +803,14 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                   </label>
                   <label className="text-xs text-mute block">Dark overlay
                     <input type="range" min="0" max="0.7" step="0.05" className="w-full" value={selected.overlayOpacity || 0} onChange={(e) => patchEl(selected.id, { overlay: '#12151A', overlayOpacity: Number(e.target.value) })} />
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selected.filter === 'grayscale'}
+                      onChange={(e) => patchEl(selected.id, { filter: e.target.checked ? 'grayscale' : undefined })}
+                    />
+                    Grayscale
                   </label>
                 </>
               )}
@@ -663,8 +849,13 @@ export default function Editor({ design: initial, onBack, onSaved }) {
               <li>Ctrl+D duplicate · Ctrl+C / V copy layer</li>
               <li>Arrows nudge · Shift+arrows 10px</li>
               <li>Delete remove layer</li>
+              <li>Click an icon or emoji to drop it on the canvas</li>
+              <li>Icons and emojis stay square when you resize</li>
+              <li>Double-click an emoji to change it</li>
+              <li>Shift+resize keeps aspect ratio</li>
               <li>Drop a photo on the canvas</li>
-              <li>Carousel: add slides for LinkedIn carousels</li>
+              <li>Carousel: add slides, ← → to reorder</li>
+              <li>Export caption as .txt with the image</li>
             </ul>
             <button type="button" className="mt-4 border border-ink px-3 py-1.5" onClick={() => setHelp(false)}>
               Close

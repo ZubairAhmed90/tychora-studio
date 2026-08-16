@@ -92,6 +92,18 @@ export function goSlide(design, index) {
   return { ...d, slideIndex: i, background: slide.background, elements: slide.elements };
 }
 
+export function moveSlide(design, dir) {
+  const d = syncSlide(design);
+  const i = d.slideIndex || 0;
+  const j = i + dir;
+  if (j < 0 || j >= d.slides.length) return d;
+  const slides = [...d.slides];
+  const tmp = slides[i];
+  slides[i] = slides[j];
+  slides[j] = tmp;
+  return goSlide({ ...d, slides, slideIndex: i }, j);
+}
+
 export function fullCaption(design) {
   const cap = (design.caption || '').trim();
   const tags = (design.hashtags || '').trim();

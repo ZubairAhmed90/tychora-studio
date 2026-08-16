@@ -1,3 +1,5 @@
+import { drawEmoji, drawIcon } from './stickers';
+
 function wrapLines(ctx, text, maxWidth) {
   const paragraphs = String(text || '').split('\n');
   const lines = [];
@@ -131,13 +133,21 @@ export async function exportDesignPng(design, { scale = 1, type = 'image/png', q
       const lines = wrapLines(ctx, content, el.w);
       const lh = (el.fontSize || 32) * (el.lineHeight || 1.2);
       const startX = el.align === 'center' ? el.x + el.w / 2 : el.align === 'right' ? el.x + el.w : el.x;
+      if (el.shadow) {
+        ctx.shadowColor = 'rgba(18,21,26,0.35)';
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetY = 6;
+      }
       lines.forEach((line, i) => ctx.fillText(line, startX, el.y + i * lh));
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
     }
 
     if (el.type === 'image' && el.src) {
       try {
         const img = await loadImage(el.src);
         ctx.save();
+        if (el.filter === 'grayscale') ctx.filter = 'grayscale(1)';
         roundRect(ctx, el.x, el.y, el.w, el.h, el.radius || 0);
         ctx.clip();
         if (el.fit === 'contain') {
@@ -163,6 +173,14 @@ export async function exportDesignPng(design, { scale = 1, type = 'image/png', q
 
     if (el.type === 'logo') {
       drawLogo(ctx, el);
+    }
+
+    if (el.type === 'icon') {
+      drawIcon(ctx, el);
+    }
+
+    if (el.type === 'emoji') {
+      drawEmoji(ctx, el);
     }
 
     ctx.restore();

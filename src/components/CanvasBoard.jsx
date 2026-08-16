@@ -1,4 +1,6 @@
 import React, { useRef, useState } from 'react';
+import { getIcon } from '../lib/stickers';
+import IconGlyph from './IconGlyph';
 
 function LogoMark({ el }) {
   const inverted = el.inverted;
@@ -39,7 +41,9 @@ export default function CanvasBoard({
   onEditText,
   zoom,
   showGrid,
+  showSafe,
   guides,
+  onDragEnd,
 }) {
   const drag = useRef(null);
   const [over, setOver] = useState(false);
@@ -53,22 +57,37 @@ export default function CanvasBoard({
     e.stopPropagation();
     e.preventDefault();
     onSelect(el.id);
-    drag.current = { id: el.id, mode, startX: e.clientX, startY: e.clientY, x: el.x, y: el.y, w: el.w, h: el.h };
+    drag.current = {
+      id: el.id,
+      mode,
+      startX: e.clientX,
+      startY: e.clientY,
+      x: el.x,
+      y: el.y,
+      w: el.w,
+      h: el.h,
+      ratio: el.w / Math.max(1, el.h),
+      lockRatio: el.type === 'icon' || el.type === 'emoji',
+    };
   };
 
   const onMove = (e) => {
     if (!drag.current) return;
-    const { id, mode, startX, startY, x, y, w, h } = drag.current;
+    const { id, mode, startX, startY, x, y, w, h, ratio, lockRatio } = drag.current;
     const dx = (e.clientX - startX) / zoom;
     const dy = (e.clientY - startY) / zoom;
     if (mode === 'move') {
       onChangeElement(id, { x: Math.round(x + dx), y: Math.round(y + dy) }, { live: true });
+    } else if (e.shiftKey || lockRatio) {
+      const nw = Math.max(24, Math.round(w + dx));
+      onChangeElement(id, { w: nw, h: Math.max(24, Math.round(nw / ratio)) }, { live: true });
     } else {
       onChangeElement(id, { w: Math.max(24, Math.round(w + dx)), h: Math.max(24, Math.round(h + dy)) }, { live: true });
     }
   };
 
   const endDrag = () => {
+    if (drag.current) onDragEnd?.();
     drag.current = null;
   };
 
@@ -131,6 +150,17 @@ export default function CanvasBoard({
         {guides?.y != null && (
           <div className="absolute left-0 right-0 h-px bg-primary-600 z-30 pointer-events-none" style={{ top: guides.y * zoom }} />
         )}
+        {showSafe && (
+          <div
+            className="absolute border border-dashed border-primary-600/70 pointer-events-none z-20"
+            style={{
+              left: design.format.w * zoom * 0.06,
+              top: design.format.h * zoom * 0.06,
+              width: design.format.w * zoom * 0.88,
+              height: design.format.h * zoom * 0.88,
+            }}
+          />
+        )}
         <div
           className="absolute top-0 left-0 origin-top-left"
           style={{
@@ -159,7 +189,7 @@ export default function CanvasBoard({
                 onMouseDown={(e) => startDrag(e, el, 'move')}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  if (el.type === 'text') onEditText?.(el.id);
+                  if (el.type === 'text' || el.type === 'emoji') onEditText?.(el.id);
                 }}
               >
                 {el.type === 'shape' && (
@@ -184,6 +214,7 @@ export default function CanvasBoard({
                       letterSpacing: el.letterSpacing ? `${el.letterSpacing}px` : undefined,
                       fontStyle: el.italic ? 'italic' : undefined,
                       textTransform: el.uppercase ? 'uppercase' : undefined,
+                      textShadow: el.shadow ? '0 8px 18px rgba(18,21,26,0.28)' : undefined,
                       pointerEvents: 'none',
                     }}
                   >
@@ -196,7 +227,7 @@ export default function CanvasBoard({
                       src={el.src}
                       alt=""
                       className="w-full h-full pointer-events-none select-none"
-                      style={{ objectFit: el.fit || 'cover' }}
+                      style={{ objectFit: el.fit || 'cover', filter: el.filter === 'grayscale' ? 'grayscale(1)' : undefined }}
                       draggable={false}
                     />
                     {el.overlayOpacity ? (
@@ -205,6 +236,26 @@ export default function CanvasBoard({
                   </div>
                 )}
                 {el.type === 'logo' && <LogoMark el={el} />}
+                {el.type === 'icon' && getIcon(el.icon) && (
+                  <div
+                    className="w-full h-full pointer-events-none"
+                    style={{
+                      background: el.badge ? el.badgeFill || el.color : undefined,
+                      borderRadius: el.badge ? '999px' : 0,
+                      padding: el.badge ? '22%' : 0,
+                    }}
+                  >
+                    <IconGlyph name={el.icon} color={el.badge ? el.badgeInk || '#F7F5F1' : el.color || '#12151A'} />
+                  </div>
+                )}
+                {el.type === 'emoji' && (
+                  <div
+                    className="w-full h-full pointer-events-none flex items-center justify-center select-none leading-none"
+                    style={{ fontSize: Math.min(el.w, el.h) * 0.82 }}
+                  >
+                    {el.content}
+                  </div>
+                )}
                 {selected && !el.locked && (
                   <button
                     type="button"
