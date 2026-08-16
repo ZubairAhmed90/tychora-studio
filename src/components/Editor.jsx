@@ -537,8 +537,8 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                   type: 'logo',
                   x: 64,
                   y: 48,
-                  w: 300,
-                  h: 56,
+                  w: 360,
+                  h: 64,
                   inverted: design.background?.value === INK,
                   rotation: 0,
                 })

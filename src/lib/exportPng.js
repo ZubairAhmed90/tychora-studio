@@ -45,32 +45,47 @@ function roundRect(ctx, x, y, w, h, r) {
 
 function drawLogo(ctx, el) {
   const ink = el.inverted ? '#F7F5F1' : '#12151A';
-  const mark = el.inverted ? 'rgba(255,255,255,0.12)' : '#12151A';
+  const markFill = el.inverted ? 'rgba(255,255,255,0.12)' : '#12151A';
   const stroke = el.inverted ? '#F7F5F1' : '#E8E6E1';
-  const size = Math.min(el.h, 56);
-  ctx.fillStyle = mark;
-  ctx.fillRect(el.x, el.y, size, size);
+  const pad = 4;
+  const mark = Math.round(Math.min(el.h * 0.92, el.w * 0.22, el.h));
+  const mx = el.x + pad;
+  const my = el.y + (el.h - mark) / 2;
+  ctx.fillStyle = markFill;
+  ctx.fillRect(mx, my, mark, mark);
   ctx.strokeStyle = stroke;
-  ctx.lineWidth = 3.2;
+  ctx.lineWidth = Math.max(2, mark * 0.08);
   ctx.lineCap = 'square';
   ctx.beginPath();
-  ctx.moveTo(el.x + size * 0.28, el.y + size * 0.28);
-  ctx.lineTo(el.x + size * 0.72, el.y + size * 0.28);
-  ctx.moveTo(el.x + size * 0.5, el.y + size * 0.28);
-  ctx.lineTo(el.x + size * 0.5, el.y + size * 0.72);
+  ctx.moveTo(mx + mark * 0.22, my + mark * 0.28);
+  ctx.lineTo(mx + mark * 0.78, my + mark * 0.28);
+  ctx.moveTo(mx + mark * 0.5, my + mark * 0.28);
+  ctx.lineTo(mx + mark * 0.5, my + mark * 0.78);
   ctx.stroke();
-  ctx.fillStyle = ink;
-  ctx.font = `600 ${Math.round(size * 0.32)}px "IBM Plex Sans", sans-serif`;
+
+  const titleSize = Math.max(12, Math.round(el.h * 0.3));
+  const subSize = Math.max(8, Math.round(el.h * 0.155));
+  const tx = mx + mark + Math.max(8, mark * 0.18);
+  const ty = el.y + el.h * 0.18;
   ctx.textBaseline = 'top';
-  ctx.fillText('TYCHORA', el.x + size + 12, el.y + 6);
-  ctx.fillStyle = el.inverted ? 'rgba(247,245,241,0.6)' : '#5E6670';
-  ctx.font = `500 ${Math.round(size * 0.18)}px "IBM Plex Sans", sans-serif`;
-  ctx.fillText('TECHNOLOGIES', el.x + size + 12, el.y + size * 0.55);
+  ctx.fillStyle = ink;
+  ctx.font = `600 ${titleSize}px "IBM Plex Sans", sans-serif`;
+  if (ctx.letterSpacing !== undefined) ctx.letterSpacing = `${Math.round(titleSize * 0.12)}px`;
+  ctx.fillText('TYCH', tx, ty);
+  const tychW = ctx.measureText('TYCH').width;
+  const dot = titleSize * 0.52;
+  const gap = titleSize * 0.1;
   ctx.fillStyle = '#C8102E';
-  const dotX = el.x + size + 12 + ctx.measureText('TYCH').width + 8;
   ctx.beginPath();
-  ctx.arc(dotX, el.y + 14, 4, 0, Math.PI * 2);
+  ctx.arc(tx + tychW + gap + dot / 2, ty + titleSize * 0.42, dot / 2, 0, Math.PI * 2);
   ctx.fill();
+  ctx.fillStyle = ink;
+  ctx.fillText('RA', tx + tychW + gap + dot + gap, ty);
+  ctx.fillStyle = el.inverted ? 'rgba(247,245,241,0.6)' : '#5E6670';
+  ctx.font = `500 ${subSize}px "IBM Plex Sans", sans-serif`;
+  if (ctx.letterSpacing !== undefined) ctx.letterSpacing = `${Math.round(subSize * 0.2)}px`;
+  ctx.fillText('TECHNOLOGIES', tx, ty + titleSize + Math.max(2, el.h * 0.04));
+  if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '0px';
 }
 
 export async function exportDesignPng(design, { scale = 1, type = 'image/png', quality = 0.92 } = {}) {

@@ -44,8 +44,8 @@ function logo(partial) {
     type: 'logo',
     x: 64,
     y: 48,
-    w: 280,
-    h: 56,
+    w: 360,
+    h: 64,
     rotation: 0,
     z: 10,
     inverted: false,
@@ -229,7 +229,7 @@ export const TEMPLATES = [
         'Product · Project · Team',
         { type: 'color', value: INK },
         [
-          logo({ x: 72, y: 64, inverted: true, w: 300, h: 56, z: 5 }),
+          logo({ x: 72, y: 64, inverted: true, w: 360, h: 64, z: 5 }),
           text({
             content: 'Three ways\nto work with us.',
             x: 72,
@@ -660,7 +660,7 @@ export const TEMPLATES = [
         'Hiring / team',
         { type: 'color', value: INK },
         [
-          logo({ x: 72, y: 64, inverted: true, w: 300, h: 56, z: 5 }),
+          logo({ x: 72, y: 64, inverted: true, w: 360, h: 64, z: 5 }),
           iconEl({ icon: 'users', color: RED, x: 72, y: 220, w: 64, h: 64, z: 4 }),
           text({
             content: 'Need extra engineers,\nnot a whole new vendor?',

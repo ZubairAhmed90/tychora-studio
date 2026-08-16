@@ -5,27 +5,56 @@ import QrMark from './QrMark';
 
 function LogoMark({ el }) {
   const inverted = el.inverted;
+  const h = Math.max(24, el.h);
+  const mark = Math.round(Math.min(h * 0.92, el.w * 0.22, h));
+  const titleSize = Math.max(12, Math.round(h * 0.3));
+  const subSize = Math.max(8, Math.round(h * 0.155));
   return (
-    <div className="flex items-center gap-2 h-full select-none pointer-events-none px-1">
+    <div className="flex items-center h-full select-none pointer-events-none overflow-visible" style={{ gap: Math.max(8, mark * 0.18), paddingLeft: 4, paddingRight: 8 }}>
       <span
         className="flex items-center justify-center shrink-0 rounded-[3px]"
         style={{
-          width: Math.min(el.h, 56),
-          height: Math.min(el.h, 56),
+          width: mark,
+          height: mark,
           background: inverted ? 'rgba(255,255,255,0.12)' : '#12151A',
         }}
       >
-        <svg viewBox="0 0 40 40" className="w-[70%] h-[70%]">
-          <path d="M12 12h16M20 12v17" stroke={inverted ? '#F7F5F1' : '#E8E6E1'} strokeWidth="3.2" strokeLinecap="square" fill="none" />
+        <svg viewBox="0 0 40 40" className="w-[70%] h-[70%]" overflow="visible">
+          <path d="M8 11h24M20 11v19" stroke={inverted ? '#F7F5F1' : '#E8E6E1'} strokeWidth="3.2" strokeLinecap="square" fill="none" />
         </svg>
       </span>
-      <span className="leading-tight min-w-0">
-        <span className="flex items-center font-semibold tracking-[0.14em]" style={{ color: inverted ? '#F7F5F1' : '#12151A', fontSize: Math.max(11, el.h * 0.28) }}>
-          TYCH
-          <span className="mx-[0.08em] mb-[0.08em] inline-block w-[0.55em] h-[0.55em] rounded-full bg-primary-600 shrink-0" />
-          RA
+      <span className="shrink-0 leading-none">
+        <span
+          className="flex items-center font-semibold"
+          style={{
+            color: inverted ? '#F7F5F1' : '#12151A',
+            fontSize: titleSize,
+            letterSpacing: '0.12em',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span>TYCH</span>
+          <span
+            className="rounded-full bg-primary-600 shrink-0"
+            style={{
+              width: titleSize * 0.52,
+              height: titleSize * 0.52,
+              marginLeft: titleSize * 0.1,
+              marginRight: titleSize * 0.1,
+            }}
+          />
+          <span>RA</span>
         </span>
-        <span className="block font-medium tracking-[0.22em] uppercase" style={{ color: inverted ? 'rgba(247,245,241,0.6)' : '#5E6670', fontSize: Math.max(8, el.h * 0.16) }}>
+        <span
+          className="block font-medium uppercase"
+          style={{
+            color: inverted ? 'rgba(247,245,241,0.6)' : '#5E6670',
+            fontSize: subSize,
+            letterSpacing: '0.2em',
+            marginTop: Math.max(2, h * 0.04),
+            whiteSpace: 'nowrap',
+          }}
+        >
           Technologies
         </span>
       </span>
@@ -68,7 +97,7 @@ export default function CanvasBoard({
       w: el.w,
       h: el.h,
       ratio: el.w / Math.max(1, el.h),
-      lockRatio: el.type === 'icon' || el.type === 'emoji' || el.type === 'qr',
+      lockRatio: el.type === 'icon' || el.type === 'emoji' || el.type === 'qr' || el.type === 'logo',
     };
   };
 
@@ -186,6 +215,7 @@ export default function CanvasBoard({
                   outline: selected ? '2px solid #C8102E' : 'none',
                   cursor: el.locked ? 'default' : 'move',
                   opacity: el.opacity == null ? 1 : el.opacity,
+                  overflow: el.type === 'logo' ? 'visible' : undefined,
                 }}
                 onMouseDown={(e) => startDrag(e, el, 'move')}
                 onDoubleClick={(e) => {
