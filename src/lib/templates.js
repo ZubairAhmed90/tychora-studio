@@ -1,4 +1,5 @@
 import { uid, SIZES, INK, PAPER, RED, MUTE } from './brand';
+import { galleryItem } from './gallery';
 
 function text(partial) {
   return {
@@ -82,6 +83,35 @@ function qrEl(partial) {
     rotation: 0,
     z: 4,
     ...partial,
+  };
+}
+
+function imageEl(partial) {
+  return {
+    id: uid(),
+    type: 'image',
+    src: '',
+    x: 80,
+    y: 160,
+    w: 480,
+    h: 320,
+    rotation: 0,
+    z: 1,
+    fit: 'cover',
+    ...partial,
+  };
+}
+
+export function emptyDesign(size = SIZES[0], name = 'Empty canvas') {
+  return {
+    id: uid(),
+    name,
+    updatedAt: Date.now(),
+    format: { ...size },
+    caption: '',
+    hashtags: '',
+    background: { type: 'color', value: PAPER },
+    elements: [],
   };
 }
 
@@ -898,6 +928,172 @@ export const TEMPLATES = [
     make: () => makeVacancyCarousel(),
   },
   {
+    id: 'event-invite',
+    name: 'Event / invite',
+    blurb: 'LinkedIn landscape',
+    sizeId: 'linkedin',
+    make: () =>
+      base(
+        'linkedin',
+        'Event / invite',
+        { type: 'color', value: PAPER },
+        [
+          logo({ x: 64, y: 40 }),
+          iconEl({ icon: 'calendar', color: RED, x: 64, y: 140, w: 56, h: 56, z: 4 }),
+          text({
+            content: 'EVENT',
+            x: 136,
+            y: 152,
+            w: 300,
+            h: 32,
+            fontSize: 14,
+            fontWeight: 600,
+            color: RED,
+            z: 3,
+          }),
+          text({
+            content: 'Office hours.\nBring the problem.',
+            x: 64,
+            y: 220,
+            w: 700,
+            h: 160,
+            fontSize: 42,
+            fontFamily: 'serif',
+            z: 3,
+          }),
+          text({
+            content: 'Replace with date, time, and place.\nKarachi  ·  Write to hello@tychora.com',
+            x: 64,
+            y: 420,
+            w: 700,
+            h: 80,
+            fontSize: 18,
+            color: MUTE,
+            z: 3,
+          }),
+          imageEl({
+            src: galleryItem('meeting').src,
+            x: 820,
+            y: 80,
+            w: 340,
+            h: 467,
+            z: 2,
+          }),
+        ]
+      ),
+  },
+  {
+    id: 'welcome-joiner',
+    name: 'Welcome / onboard',
+    blurb: 'LinkedIn square · people',
+    sizeId: 'linkedin-square',
+    make: () =>
+      base(
+        'linkedin-square',
+        'Welcome / onboard',
+        { type: 'color', value: INK },
+        [
+          logo({ x: 72, y: 64, inverted: true, z: 5 }),
+          imageEl({
+            src: galleryItem('portrait').src,
+            x: 72,
+            y: 200,
+            w: 360,
+            h: 480,
+            z: 2,
+          }),
+          text({
+            content: 'WELCOME',
+            x: 460,
+            y: 220,
+            w: 540,
+            h: 32,
+            fontSize: 14,
+            fontWeight: 600,
+            color: RED,
+            z: 3,
+          }),
+          text({
+            content: 'Meet Ayesha.\nEngineer.',
+            x: 460,
+            y: 280,
+            w: 540,
+            h: 200,
+            fontSize: 48,
+            fontFamily: 'serif',
+            color: PAPER,
+            z: 3,
+          }),
+          text({
+            content: 'Replace the name, role, and photo. First week on the team that ships.',
+            x: 460,
+            y: 520,
+            w: 540,
+            h: 140,
+            fontSize: 20,
+            color: MUTE,
+            z: 3,
+          }),
+          text({
+            content: 'tychora.com',
+            x: 72,
+            y: 980,
+            w: 400,
+            h: 36,
+            fontSize: 16,
+            fontWeight: 600,
+            color: RED,
+            z: 3,
+          }),
+        ]
+      ),
+  },
+  {
+    id: 'photo-post',
+    name: 'Photo post',
+    blurb: 'Instagram square · gallery',
+    sizeId: 'instagram',
+    make: () =>
+      base(
+        'instagram',
+        'Photo post',
+        { type: 'color', value: INK },
+        [
+          imageEl({ src: galleryItem('office').src, x: 0, y: 0, w: 1080, h: 1080, z: 1, overlay: '#12151A', overlayOpacity: 0.28 }),
+          logo({ x: 72, y: 64, inverted: true, z: 5 }),
+          text({
+            content: 'A compact\nKarachi office.',
+            x: 72,
+            y: 720,
+            w: 900,
+            h: 180,
+            fontSize: 52,
+            fontFamily: 'serif',
+            color: PAPER,
+            shadow: true,
+            z: 3,
+          }),
+          text({
+            content: 'You talk to the people who ship.',
+            x: 72,
+            y: 940,
+            w: 800,
+            h: 40,
+            fontSize: 20,
+            color: PAPER,
+            z: 3,
+          }),
+        ]
+      ),
+  },
+  {
+    id: 'onboard-carousel',
+    name: 'Onboard — 3 slides',
+    blurb: 'LinkedIn carousel · new joiner',
+    sizeId: 'linkedin-square',
+    make: () => makeOnboardCarousel(),
+  },
+  {
     id: 'crm-before-after',
     name: 'CRM before / after',
     blurb: 'LinkedIn carousel · 2 slides',
@@ -1120,6 +1316,86 @@ export function makeVacancyCarousel() {
     format: { ...size },
     caption: 'We are hiring a software engineer.\n\nKarachi. Small team. CRM, ERP, and custom systems.\n\nWrite to us — a short note and a CV.\nhello@tychora.com',
     hashtags: '#Tychora #Hiring #Karachi #SoftwareEngineer',
+    slideIndex: 0,
+    slides,
+    background: slides[0].background,
+    elements: slides[0].elements,
+  };
+}
+
+export function makeOnboardCarousel() {
+  const size = SIZES.find((s) => s.id === 'linkedin-square') || SIZES[1];
+  const cards = [
+    {
+      dark: false,
+      icon: 'user-plus',
+      kicker: '01  Welcome',
+      title: 'You are on\nthe team.',
+      line: 'Replace with the person’s name. A compact Karachi office. You sit with the people who ship.',
+    },
+    {
+      dark: true,
+      icon: 'layers',
+      kicker: '02  How we work',
+      title: 'Product.\nProject. Team.',
+      line: 'Ready software, a build, or extra engineers. We take the work we can actually staff.',
+    },
+    {
+      dark: false,
+      icon: 'send',
+      kicker: '03  First week',
+      title: 'Ask.\nThen ship.',
+      line: 'Write to the person who hired you. Hello is hello@tychora.com if you are stuck.',
+    },
+  ];
+  const slides = cards.map((card, i) => ({
+    id: uid(),
+    background: { type: 'color', value: card.dark ? INK : PAPER },
+    elements: [
+      logo({ x: 72, y: 64, inverted: card.dark, z: 5 }),
+      iconEl({ icon: card.icon, color: RED, x: 72, y: 200, w: 64, h: 64, z: 4 }),
+      text({ content: card.kicker, x: 72, y: 290, w: 500, h: 36, fontSize: 18, fontWeight: 600, color: RED, z: 3 }),
+      text({
+        content: card.title,
+        x: 72,
+        y: 350,
+        w: 920,
+        h: 220,
+        fontSize: 56,
+        fontFamily: 'serif',
+        color: card.dark ? PAPER : INK,
+        z: 3,
+      }),
+      text({
+        content: card.line,
+        x: 72,
+        y: 620,
+        w: 900,
+        h: 180,
+        fontSize: 26,
+        fontWeight: 400,
+        color: MUTE,
+        z: 3,
+      }),
+      text({
+        content: `${i + 1} / 3   ·   tychora.com`,
+        x: 72,
+        y: 980,
+        w: 800,
+        h: 36,
+        fontSize: 16,
+        color: MUTE,
+        z: 3,
+      }),
+    ],
+  }));
+  return {
+    id: uid(),
+    name: 'Onboard — 3 slides',
+    updatedAt: Date.now(),
+    format: { ...size },
+    caption: 'Welcome to the team.\n\nA compact Karachi office. You sit with the people who ship.\n\ntychora.com',
+    hashtags: '#Tychora #Team #Karachi',
     slideIndex: 0,
     slides,
     background: slides[0].background,

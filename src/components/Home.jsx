@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { MAX_SAVED } from '../lib/storage';
-import { SIZES } from '../lib/brand';
-import { TEMPLATES, blankDesign } from '../lib/templates';
+import { SIZES, customFormat } from '../lib/brand';
+import { TEMPLATES, emptyDesign } from '../lib/templates';
 import IconGlyph from './IconGlyph';
 
 function Mini({ design }) {
@@ -53,6 +53,8 @@ function Mini({ design }) {
 export default function Home({ posts, onNew, onOpen, onDelete, onDuplicate }) {
   const [query, setQuery] = useState('');
   const [platform, setPlatform] = useState('All');
+  const [customW, setCustomW] = useState(1080);
+  const [customH, setCustomH] = useState(1080);
   const platforms = ['All', ...new Set(SIZES.map((s) => s.platform))];
 
   const templates = useMemo(() => {
@@ -110,13 +112,13 @@ export default function Home({ posts, onNew, onOpen, onDelete, onDuplicate }) {
           ))}
         </div>
 
-        <p className="text-[10px] tracking-[0.2em] uppercase text-mute mb-3">Blank canvas</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-12">
+        <p className="text-[10px] tracking-[0.2em] uppercase text-mute mb-3">Empty canvas</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-4">
           {sizes.map((size) => (
             <button
               key={size.id}
               type="button"
-              onClick={() => onNew(blankDesign(size, size.label))}
+              onClick={() => onNew(emptyDesign(size, 'Empty canvas'))}
               className="border border-line p-3 text-left hover:border-ink hover:bg-white transition-colors"
             >
               <span className="block text-[10px] tracking-[0.16em] uppercase text-primary-600 mb-2">{size.platform}</span>
@@ -126,6 +128,38 @@ export default function Home({ posts, onNew, onOpen, onDelete, onDuplicate }) {
               </span>
             </button>
           ))}
+        </div>
+        <div className="flex flex-wrap items-end gap-2 mb-12">
+          <label className="text-xs text-mute">
+            Width
+            <input
+              type="number"
+              min="400"
+              max="4096"
+              className="block w-24 border border-line px-2 py-1.5 bg-transparent text-sm text-ink"
+              value={customW}
+              onChange={(e) => setCustomW(e.target.value)}
+            />
+          </label>
+          <label className="text-xs text-mute">
+            Height
+            <input
+              type="number"
+              min="400"
+              max="4096"
+              className="block w-24 border border-line px-2 py-1.5 bg-transparent text-sm text-ink"
+              value={customH}
+              onChange={(e) => setCustomH(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="border border-ink px-3 py-1.5 text-sm hover:bg-ink hover:text-paper"
+            onClick={() => onNew(emptyDesign(customFormat(customW, customH), 'Empty canvas'))}
+          >
+            Open custom size
+          </button>
+          <span className="text-xs text-mute">Empty. Resize later in the editor.</span>
         </div>
 
         <p className="text-[10px] tracking-[0.2em] uppercase text-mute mb-3">Templates</p>

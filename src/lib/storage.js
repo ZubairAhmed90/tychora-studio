@@ -47,3 +47,30 @@ export function duplicatePost(post) {
   };
   return upsertPost(copy);
 }
+
+const GALLERY_KEY = 'tychora-studio-gallery';
+export const MAX_GALLERY = 16;
+
+export function loadGallery() {
+  try {
+    const raw = localStorage.getItem(GALLERY_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addGalleryPhoto(src) {
+  const list = loadGallery();
+  list.unshift({ id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, src });
+  const next = list.slice(0, MAX_GALLERY);
+  localStorage.setItem(GALLERY_KEY, JSON.stringify(next));
+  return next;
+}
+
+export function removeGalleryPhoto(id) {
+  const next = loadGallery().filter((item) => item.id !== id);
+  localStorage.setItem(GALLERY_KEY, JSON.stringify(next));
+  return next;
+}

@@ -27,6 +27,7 @@ function loadImage(src) {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = reject;
+    if (/^https?:/i.test(src)) img.crossOrigin = 'anonymous';
     img.src = src;
   });
 }

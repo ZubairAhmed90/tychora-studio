@@ -45,7 +45,23 @@ export const CAPTIONS = [
     body: 'Tell us the problem. We say if we are a fit.\n\nhello@tychora.com',
     tags: '#TychoraTechnologies',
   },
+  {
+    name: 'Event',
+    body: 'Office hours. Bring the problem.\n\nReplace with the date and place.\nWrite to us — hello@tychora.com',
+    tags: '#Tychora #Karachi',
+  },
+  {
+    name: 'Welcome',
+    body: 'Welcome to the team.\n\nA compact Karachi office. You sit with the people who ship.\n\ntychora.com',
+    tags: '#Tychora #Team #Karachi',
+  },
 ];
+
+export function customFormat(w, h) {
+  const width = Math.max(400, Math.min(4096, Math.round(Number(w) || 1080)));
+  const height = Math.max(400, Math.min(4096, Math.round(Number(h) || 1080)));
+  return { id: 'custom', label: `Custom ${width}×${height}`, platform: 'Custom', w: width, h: height };
+}
 
 export function uid() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;

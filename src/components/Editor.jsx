@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CAPTIONS, COLORS, INK, PAPER, PHRASES, RED, SIZES, uid } from '../lib/brand';
+import { CAPTIONS, COLORS, INK, PAPER, PHRASES, RED, SIZES, customFormat, uid } from '../lib/brand';
 import { MAX_SAVED, upsertPost } from '../lib/storage';
 import { adaptFormat, addSlide, fullCaption, goSlide, moveSlide, normalizeDesign, removeSlide, syncSlide } from '../lib/design';
 import { copyPngToClipboard, downloadDataUrl, exportCarouselZip, exportDesignPng, fileToDataUrl } from '../lib/exportPng';
@@ -7,6 +7,7 @@ import { EMOJI_GROUPS, ICONS, firstGrapheme } from '../lib/stickers';
 import { QR_PRESETS } from '../lib/qr';
 import CanvasBoard from './CanvasBoard';
 import CropModal from './CropModal';
+import GalleryPanel from './GalleryPanel';
 import IconGlyph from './IconGlyph';
 import Preview from './Preview';
 import StickerPanel from './StickerPanel';
@@ -26,6 +27,8 @@ export default function Editor({ design: initial, onBack, onSaved }) {
   const [help, setHelp] = useState(false);
   const [cropOpen, setCropOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [customW, setCustomW] = useState(design.format.w);
+  const [customH, setCustomH] = useState(design.format.h);
   const history = useRef([normalizeDesign(initial)]);
   const histIndex = useRef(0);
   const fileRef = useRef(null);
@@ -168,7 +171,27 @@ export default function Editor({ design: initial, onBack, onSaved }) {
 
   const addImageFromFile = async (file) => {
     const src = await fileToDataUrl(file);
-    addEl({ id: uid(), type: 'image', src, x: 80, y: 160, w: 480, h: 320, rotation: 0, fit: 'cover' });
+    addPhoto(src);
+  };
+
+  const addPhoto = (src) => {
+    const d = designRef.current;
+    addEl({
+      id: uid(),
+      type: 'image',
+      src,
+      x: 80,
+      y: 140,
+      w: Math.round(d.format.w * 0.5),
+      h: Math.round(d.format.h * 0.4),
+      rotation: 0,
+      fit: 'cover',
+    });
+  };
+
+  const setBgPhoto = (src) => {
+    const d = designRef.current;
+    push({ ...d, background: { ...d.background, image: src } });
   };
 
   const stickerBox = (size = 96) => ({
@@ -528,6 +551,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
             </button>
           </div>
           <StickerPanel onAddIcon={addIcon} onAddEmoji={addEmoji} />
+          <GalleryPanel onAddPhoto={addPhoto} onBackground={setBgPhoto} />
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) addImageFromFile(f); }} />
           <input ref={bgFileRef} type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; const src = await fileToDataUrl(f); push({ ...design, background: { ...design.background, image: src } }); }} />
 
@@ -563,11 +587,15 @@ export default function Editor({ design: initial, onBack, onSaved }) {
 
           <p className="text-[10px] tracking-[0.2em] uppercase text-mute mt-5 mb-2">Size</p>
           <select
-            className="w-full text-sm border border-line bg-transparent px-2 py-2"
-            value={design.format.id}
+            className="w-full text-sm border border-line bg-transparent px-2 py-2 mb-2"
+            value={SIZES.some((s) => s.id === design.format.id) ? design.format.id : 'custom'}
             onChange={(e) => {
               const size = SIZES.find((s) => s.id === e.target.value);
-              if (size) push(adaptFormat(design, size));
+              if (size) {
+                push(adaptFormat(designRef.current, size));
+                setCustomW(size.w);
+                setCustomH(size.h);
+              }
             }}
           >
             {SIZES.map((s) => (
@@ -575,7 +603,38 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                 {s.label}
               </option>
             ))}
+            <option value="custom">Custom {design.format.w}×{design.format.h}</option>
           </select>
+          <div className="flex gap-1 mb-1">
+            <input
+              type="number"
+              min="400"
+              max="4096"
+              className="w-full border border-line px-2 py-1 bg-transparent text-xs"
+              value={customW}
+              onChange={(e) => setCustomW(e.target.value)}
+            />
+            <input
+              type="number"
+              min="400"
+              max="4096"
+              className="w-full border border-line px-2 py-1 bg-transparent text-xs"
+              value={customH}
+              onChange={(e) => setCustomH(e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            className={`${toolBtn} mt-1`}
+            onClick={() => {
+              const size = customFormat(customW, customH);
+              push(adaptFormat(designRef.current, size));
+              setCustomW(size.w);
+              setCustomH(size.h);
+            }}
+          >
+            Apply size
+          </button>
 
           <p className="text-[10px] tracking-[0.2em] uppercase text-mute mt-5 mb-2">View</p>
           <label className="flex items-center gap-2 text-sm mb-2">

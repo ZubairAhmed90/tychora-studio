@@ -228,6 +228,7 @@ export default function CanvasBoard({
                       src={el.src}
                       alt=""
                       className="w-full h-full pointer-events-none select-none"
+                      crossOrigin={el.src?.startsWith('http') ? 'anonymous' : undefined}
                       style={{
                         objectFit: el.fit || 'cover',
                         objectPosition: `${(el.panX == null ? 0.5 : el.panX) * 100}% ${(el.panY == null ? 0.5 : el.panY) * 100}%`,
