@@ -1,4 +1,4 @@
-import { uid, SIZES, INK, PAPER, RED, MUTE } from './brand';
+import { uid, SIZES, INK, PAPER, RED, MUTE, WHITE } from './brand';
 import { galleryItem } from './gallery';
 
 function text(partial) {
@@ -110,7 +110,8 @@ export function emptyDesign(size = SIZES[0], name = 'Empty canvas') {
     format: { ...size },
     caption: '',
     hashtags: '',
-    background: { type: 'color', value: PAPER },
+    background: { type: 'color', value: WHITE },
+    frame: { style: 'none', color: INK, weight: 16 },
     elements: [],
   };
 }

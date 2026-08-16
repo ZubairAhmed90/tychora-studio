@@ -1,5 +1,6 @@
 export const INK = '#12151A';
 export const PAPER = '#F7F5F1';
+export const WHITE = '#FFFFFF';
 export const RED = '#C8102E';
 export const MUTE = '#5E6670';
 export const LINE = '#E4E0D8';
@@ -16,7 +17,7 @@ export const SIZES = [
   { id: 'x', label: 'X / Twitter', platform: 'X', w: 1600, h: 900 },
 ];
 
-export const COLORS = [INK, PAPER, RED, MUTE, LINE, ACCENT, '#FFFFFF', '#2F6B4F', '#1C2026'];
+export const COLORS = [INK, PAPER, WHITE, RED, MUTE, LINE, ACCENT, '#2F6B4F', '#1C2026'];
 
 export const PHRASES = [
   { label: 'Headline', text: 'Software for how the business already runs.' },

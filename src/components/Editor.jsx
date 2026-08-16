@@ -4,7 +4,7 @@ import { MAX_SAVED, upsertPost } from '../lib/storage';
 import { adaptFormat, addSlide, fullCaption, goSlide, moveSlide, normalizeDesign, removeSlide, syncSlide } from '../lib/design';
 import { copyPngToClipboard, downloadDataUrl, exportCarouselZip, exportDesignPng, fileToDataUrl } from '../lib/exportPng';
 import { EMOJI_GROUPS, ICONS, firstGrapheme } from '../lib/stickers';
-import { QR_PRESETS } from '../lib/qr';
+import { FRAME_STYLES, normalizeFrame } from '../lib/frame';
 import CanvasBoard from './CanvasBoard';
 import CropModal from './CropModal';
 import GalleryPanel from './GalleryPanel';
@@ -13,6 +13,15 @@ import Preview from './Preview';
 import StickerPanel from './StickerPanel';
 
 const SNAP = 12;
+
+function contrastOn(hex) {
+  const h = String(hex || '#F7F5F1').replace('#', '');
+  if (h.length < 6) return '#12151A';
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.55 ? '#F7F5F1' : '#12151A';
+}
 
 export default function Editor({ design: initial, onBack, onSaved }) {
   const [design, setDesign] = useState(() => normalizeDesign(initial));
@@ -29,6 +38,9 @@ export default function Editor({ design: initial, onBack, onSaved }) {
   const [dirty, setDirty] = useState(false);
   const [customW, setCustomW] = useState(design.format.w);
   const [customH, setCustomH] = useState(design.format.h);
+  const [place, setPlace] = useState(null);
+  const placeRef = useRef(null);
+  placeRef.current = place;
   const history = useRef([normalizeDesign(initial)]);
   const histIndex = useRef(0);
   const fileRef = useRef(null);
@@ -66,22 +78,24 @@ export default function Editor({ design: initial, onBack, onSaved }) {
     setDesign(history.current[histIndex.current]);
   };
 
-  const selected = design.elements.find((el) => el.id === selectedId);
+  const selected = (design.elements || []).find((el) => el.id === selectedId);
 
   const patchEl = (id, patch) => {
+    const d = designRef.current;
+    const els = d.elements || [];
     push({
-      ...designRef.current,
-      elements: designRef.current.elements.map((el) => (el.id === id ? { ...el, ...patch } : el)),
+      ...d,
+      elements: els.map((el) => (el.id === id ? { ...el, ...patch } : el)),
     });
   };
 
   const livePatch = (id, patch, opts) => {
     const apply = (prev) => ({
       ...prev,
-      elements: prev.elements.map((el) => (el.id === id ? { ...el, ...patch } : el)),
+      elements: (prev.elements || []).map((el) => (el.id === id ? { ...el, ...patch } : el)),
     });
     const next = apply(designRef.current);
-    const el = next.elements.find((item) => item.id === id);
+    const el = (next.elements || []).find((item) => item.id === id);
     const g = {};
     if (el) {
       const cx = Math.round((next.format.w - el.w) / 2);
@@ -103,10 +117,59 @@ export default function Editor({ design: initial, onBack, onSaved }) {
 
   const addEl = (el) => {
     const d = designRef.current;
-    const maxZ = d.elements.reduce((m, item) => Math.max(m, item.z || 0), 0);
+    const els = Array.isArray(d.elements) ? d.elements : [];
+    const maxZ = els.reduce((m, item) => Math.max(m, item.z || 0), 0);
     const next = { ...el, z: maxZ + 1, opacity: el.opacity == null ? 1 : el.opacity, locked: false };
-    push({ ...d, elements: [...d.elements, next] });
+    push({ ...d, elements: [...els, next] });
     setSelectedId(next.id);
+    setPlace(null);
+    return next;
+  };
+
+  const dropOnHost = (el, host, fitWidth) => {
+    const pad = 20;
+    const w = fitWidth ? Math.max(48, host.w - pad * 2) : el.w;
+    const h = el.h || 48;
+    const color = el.type === 'text' && host.fill ? contrastOn(host.fill) : el.color;
+    addEl({
+      ...el,
+      x: Math.round(host.x + pad),
+      y: Math.round(host.y + Math.max(8, (host.h - h) / 2)),
+      w,
+      color: color || el.color,
+    });
+    flash('Placed on the shape — type on the right');
+  };
+
+  const queueAdd = (el, opts = {}) => {
+    const d = designRef.current;
+    const host = (d.elements || []).find((item) => item.id === selectedId);
+    if (opts.attach !== false && host && (host.type === 'shape' || host.type === 'image') && el.type !== 'shape') {
+      dropOnHost(el, host, opts.fitWidth);
+      return;
+    }
+    setPlace({
+      label: opts.label || el.type,
+      fitWidth: opts.fitWidth,
+      el,
+    });
+    flash('Click the canvas to place it');
+  };
+
+  const placeAt = (x, y, host) => {
+    const pending = placeRef.current;
+    if (!pending) return;
+    if (host && (host.type === 'shape' || host.type === 'image')) {
+      dropOnHost(pending.el, host, pending.fitWidth);
+      return;
+    }
+    const el = pending.el;
+    addEl({
+      ...el,
+      x: Math.max(0, Math.round(x - (el.w || 80) / 2)),
+      y: Math.max(0, Math.round(y - (el.h || 40) / 2)),
+    });
+    flash('Added');
   };
 
   const removeSelected = () => {
@@ -116,14 +179,14 @@ export default function Editor({ design: initial, onBack, onSaved }) {
       return;
     }
     const d = designRef.current;
-    push({ ...d, elements: d.elements.filter((item) => item.id !== id) });
+    push({ ...d, elements: (d.elements || []).filter((item) => item.id !== id) });
     setSelectedId(null);
     flash('Deleted');
   };
 
   const removeLayer = (id) => {
     const d = designRef.current;
-    push({ ...d, elements: d.elements.filter((item) => item.id !== id) });
+    push({ ...d, elements: (d.elements || []).filter((item) => item.id !== id) });
     if (selectedId === id) setSelectedId(null);
     flash('Deleted');
   };
@@ -134,22 +197,26 @@ export default function Editor({ design: initial, onBack, onSaved }) {
   };
 
   const addText = (preset) => {
-    addEl({
-      id: uid(),
-      type: 'text',
-      x: 80,
-      y: 200,
-      w: 520,
-      h: preset.h,
-      rotation: 0,
-      content: preset.content,
-      fontSize: preset.fontSize,
-      fontWeight: preset.fontWeight,
-      fontFamily: preset.fontFamily,
-      color: design.background?.value === INK ? PAPER : INK,
-      align: 'left',
-      lineHeight: 1.2,
-    });
+    const d = designRef.current;
+    queueAdd(
+      {
+        id: uid(),
+        type: 'text',
+        x: 80,
+        y: 200,
+        w: Math.min(520, d.format.w - 96),
+        h: preset.h,
+        rotation: 0,
+        content: preset.content,
+        fontSize: preset.fontSize,
+        fontWeight: preset.fontWeight,
+        fontFamily: preset.fontFamily,
+        color: d.background?.value === INK ? PAPER : INK,
+        align: 'left',
+        lineHeight: 1.2,
+      },
+      { fitWidth: true, label: 'text' }
+    );
   };
 
   const addShape = (kind) => {
@@ -176,7 +243,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
 
   const addPhoto = (src) => {
     const d = designRef.current;
-    addEl({
+    queueAdd({
       id: uid(),
       type: 'image',
       src,
@@ -186,7 +253,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
       h: Math.round(d.format.h * 0.4),
       rotation: 0,
       fit: 'cover',
-    });
+    }, { label: 'photo' });
   };
 
   const setBgPhoto = (src) => {
@@ -203,38 +270,40 @@ export default function Editor({ design: initial, onBack, onSaved }) {
   });
 
   const addIcon = (iconId) => {
-    addEl({
+    const d = designRef.current;
+    queueAdd({
       id: uid(),
       type: 'icon',
       icon: iconId,
-      color: design.background?.value === INK ? PAPER : INK,
+      color: d.background?.value === INK ? PAPER : INK,
       badge: false,
       badgeFill: RED,
       badgeInk: PAPER,
       ...stickerBox(),
-    });
+    }, { label: 'icon' });
   };
 
   const addEmoji = (mark) => {
     const content = firstGrapheme(mark);
     if (!content) return;
-    addEl({
+    queueAdd({
       id: uid(),
       type: 'emoji',
       content,
       ...stickerBox(112),
-    });
+    }, { label: 'emoji' });
   };
 
   const addQr = (value = 'https://tychora.com') => {
-    addEl({
+    const d = designRef.current;
+    queueAdd({
       id: uid(),
       type: 'qr',
       value,
-      color: design.background?.value === INK ? PAPER : INK,
-      bg: design.background?.value === INK ? INK : PAPER,
+      color: d.background?.value === INK ? PAPER : INK,
+      bg: d.background?.value === INK ? INK : PAPER,
       ...stickerBox(180),
-    });
+    }, { label: 'QR' });
   };
 
   const flash = (msg) => {
@@ -298,7 +367,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
     flash('Exporting slides…');
     for (let i = 0; i < d.slides.length; i += 1) {
       const slide = d.slides[i];
-      const one = { ...d, background: slide.background, elements: slide.elements };
+      const one = { ...d, background: slide.background, elements: slide.elements, frame: slide.frame || d.frame };
       const url = await exportDesignPng(one);
       downloadDataUrl(url, `${d.name.replace(/\s+/g, '-').toLowerCase()}-slide-${i + 1}.png`);
     }
@@ -345,7 +414,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
     const onKey = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
       const d = designRef.current;
-      const sel = d.elements.find((el) => el.id === selectedId);
+      const sel = (d.elements || []).find((el) => el.id === selectedId);
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
         e.preventDefault();
         removeSelected();
@@ -365,6 +434,10 @@ export default function Editor({ design: initial, onBack, onSaved }) {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
         save();
+      }
+      if (e.key === 'Escape') {
+        setPlace(null);
+        return;
       }
       if (e.key === '?' || e.key === 'F1') {
         e.preventDefault();
@@ -532,16 +605,16 @@ export default function Editor({ design: initial, onBack, onSaved }) {
               type="button"
               className={toolBtn}
               onClick={() =>
-                addEl({
+                queueAdd({
                   id: uid(),
                   type: 'logo',
                   x: 64,
                   y: 48,
                   w: 360,
                   h: 64,
-                  inverted: design.background?.value === INK,
+                  inverted: designRef.current.background?.value === INK,
                   rotation: 0,
-                })
+                }, { label: 'logo' })
               }
             >
               Tychora logo
@@ -584,6 +657,56 @@ export default function Editor({ design: initial, onBack, onSaved }) {
               Remove background photo
             </button>
           )}
+
+          <p className="text-[10px] tracking-[0.2em] uppercase text-mute mt-5 mb-2">Frame (exports)</p>
+          <div className="grid grid-cols-2 gap-1 mb-2">
+            {FRAME_STYLES.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className={`text-xs py-1.5 border ${normalizeFrame(design.frame).style === s.id ? 'border-ink bg-white' : 'border-line'}`}
+                onClick={() =>
+                  push({
+                    ...design,
+                    frame: {
+                      ...normalizeFrame(design.frame),
+                      style: s.id,
+                      color: s.id === 'redbar' ? RED : normalizeFrame(design.frame).color,
+                    },
+                  })
+                }
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          {normalizeFrame(design.frame).style !== 'none' && (
+            <>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {COLORS.map((c) => (
+                  <button
+                    key={`frame-${c}`}
+                    type="button"
+                    className="w-7 h-7 border border-line"
+                    style={{ background: c }}
+                    onClick={() => push({ ...design, frame: { ...normalizeFrame(design.frame), color: c } })}
+                  />
+                ))}
+              </div>
+              <label className="text-xs text-mute block mb-2">
+                Weight
+                <input
+                  type="range"
+                  min="4"
+                  max="64"
+                  className="w-full"
+                  value={normalizeFrame(design.frame).weight}
+                  onChange={(e) => push({ ...design, frame: { ...normalizeFrame(design.frame), weight: Number(e.target.value) } })}
+                />
+              </label>
+            </>
+          )}
+          <p className="text-[10px] text-mute mb-1">White or paper canvases get an editor edge so you can see the board. Pick a frame above to include it in PNG / JPG.</p>
 
           <p className="text-[10px] tracking-[0.2em] uppercase text-mute mt-5 mb-2">Size</p>
           <select
@@ -659,6 +782,12 @@ export default function Editor({ design: initial, onBack, onSaved }) {
           <input type="range" min="0.2" max="1.2" step="0.05" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-full" />
         </aside>
 
+        <div className="flex-1 min-h-0 relative flex">
+        {place && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 bg-ink text-paper text-xs px-3 py-1.5 pointer-events-none">
+            Click the canvas to place {place.label}. Esc to cancel.
+          </div>
+        )}
         <CanvasBoard
           design={design}
           selectedId={selectedId}
@@ -667,10 +796,32 @@ export default function Editor({ design: initial, onBack, onSaved }) {
           showGrid={showGrid}
           showSafe={showSafe}
           guides={guides}
+          placeMode={!!place}
+          onPlace={placeAt}
           onDropFile={addImageFromFile}
           onEditText={(id) => {
-            const el = design.elements.find((item) => item.id === id);
+            const el = (designRef.current.elements || []).find((item) => item.id === id);
             if (!el) return;
+            if (el.type === 'shape' || el.type === 'image') {
+              dropOnHost(
+                {
+                  id: uid(),
+                  type: 'text',
+                  w: 200,
+                  h: 48,
+                  rotation: 0,
+                  content: 'Text',
+                  fontSize: 28,
+                  fontWeight: 500,
+                  fontFamily: 'sans',
+                  align: 'left',
+                  lineHeight: 1.2,
+                },
+                el,
+                true
+              );
+              return;
+            }
             if (el.type === 'emoji') {
               const next = window.prompt('Change emoji', el.content);
               if (next != null) patchEl(id, { content: firstGrapheme(next) || el.content });
@@ -685,6 +836,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
             push(designRef.current);
           }}
         />
+        </div>
 
         <aside className="w-72 border-l border-line p-4 overflow-auto shrink-0 bg-paper">
           <p className="text-[10px] tracking-[0.2em] uppercase text-mute mb-2">Caption (LinkedIn / Facebook)</p>
@@ -786,6 +938,33 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                 <label className="text-xs text-mute block">Corner
                   <input type="range" min="0" max="80" className="w-full" value={selected.radius || 0} onChange={(e) => patchEl(selected.id, { radius: Number(e.target.value) })} />
                 </label>
+              )}
+              {selected.type === 'shape' && (
+                <button
+                  type="button"
+                  className="w-full border border-ink py-2"
+                  onClick={() =>
+                    dropOnHost(
+                      {
+                        id: uid(),
+                        type: 'text',
+                        w: 200,
+                        h: 48,
+                        rotation: 0,
+                        content: 'Text',
+                        fontSize: 28,
+                        fontWeight: 500,
+                        fontFamily: 'sans',
+                        align: 'center',
+                        lineHeight: 1.2,
+                      },
+                      selected,
+                      true
+                    )
+                  }
+                >
+                  Add text on this
+                </button>
               )}
               {selected.type === 'logo' && (
                 <label className="flex items-center gap-2">
@@ -1069,6 +1248,8 @@ export default function Editor({ design: initial, onBack, onSaved }) {
               <li>Export → Carousel zip for all slides + caption</li>
               <li>QR code: website or email, drag and resize</li>
               <li>Photo: Crop, then drag to frame</li>
+              <li>White / paper canvas: editor edge is not exported</li>
+              <li>Frame styles in the left panel export with the image</li>
             </ul>
             <button type="button" className="mt-4 border border-ink px-3 py-1.5" onClick={() => setHelp(false)}>
               Close

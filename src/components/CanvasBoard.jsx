@@ -2,6 +2,8 @@ import React, { useRef, useState } from 'react';
 import { getIcon } from '../lib/stickers';
 import IconGlyph from './IconGlyph';
 import QrMark from './QrMark';
+import { canvasBlendsWithUi } from '../lib/frame';
+import FrameOverlay from './FrameOverlay';
 
 function LogoMark({ el }) {
   const inverted = el.inverted;
@@ -74,11 +76,19 @@ export default function CanvasBoard({
   showSafe,
   guides,
   onDragEnd,
+  placeMode,
+  onPlace,
 }) {
   const drag = useRef(null);
   const [over, setOver] = useState(false);
 
   const startDrag = (e, el, mode) => {
+    if (placeMode) {
+      e.stopPropagation();
+      e.preventDefault();
+      if (mode === 'move') onPlace?.(el.x + el.w / 2, el.y + el.h / 2, el);
+      return;
+    }
     if (el.locked) {
       e.stopPropagation();
       onSelect(el.id);
@@ -121,11 +131,13 @@ export default function CanvasBoard({
     drag.current = null;
   };
 
-  const layers = [...design.elements].filter((el) => !el.hidden).sort((a, b) => (a.z || 0) - (b.z || 0));
+  const layers = [...(design.elements || [])].filter((el) => !el.hidden).sort((a, b) => (a.z || 0) - (b.z || 0));
+  const blends = canvasBlendsWithUi(design.background);
 
   return (
     <div
-      className="flex-1 overflow-auto p-8 flex items-start justify-center relative"
+      className={`flex-1 overflow-auto p-8 flex items-start justify-center relative ${placeMode ? 'cursor-crosshair' : ''}`}
+      style={{ background: '#EDE9E1' }}
       onMouseMove={onMove}
       onMouseUp={endDrag}
       onMouseLeave={endDrag}
@@ -146,15 +158,16 @@ export default function CanvasBoard({
           Drop photo onto the canvas
         </div>
       )}
+      <div className="flex flex-col items-center shrink-0">
       <div
-        className="relative shadow-sm shrink-0"
+        className="relative shrink-0"
         style={{
           width: design.format.w * zoom,
           height: design.format.h * zoom,
           background:
             design.background?.type === 'gradient'
               ? `linear-gradient(135deg, ${design.background.value}, ${design.background.value2 || '#12151A'})`
-              : design.background?.value || '#F7F5F1',
+              : design.background?.value || '#FFFFFF',
           backgroundImage: design.background?.image
             ? `${design.background?.type === 'gradient' ? `linear-gradient(135deg, ${design.background.value}, ${design.background.value2 || '#12151A'}), ` : ''}url(${design.background.image})`
             : design.background?.type === 'gradient'
@@ -162,8 +175,19 @@ export default function CanvasBoard({
               : undefined,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
+          outline: blends ? '2px solid #12151A' : '1px solid #C4BDB0',
+          outlineOffset: 0,
+          boxShadow: '0 12px 32px rgba(18,21,26,0.10)',
         }}
-        onMouseDown={() => onSelect(null)}
+        onMouseDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (placeMode) {
+            const rect = e.currentTarget.getBoundingClientRect();
+            onPlace?.((e.clientX - rect.left) / zoom, (e.clientY - rect.top) / zoom, null);
+            return;
+          }
+          onSelect(null);
+        }}
       >
         {showGrid && (
           <div
@@ -198,6 +222,16 @@ export default function CanvasBoard({
             height: design.format.h,
             transform: `scale(${zoom})`,
           }}
+          onMouseDown={(e) => {
+            if (e.target !== e.currentTarget) return;
+            e.stopPropagation();
+            if (placeMode) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              onPlace?.((e.clientX - rect.left) / zoom, (e.clientY - rect.top) / zoom, null);
+              return;
+            }
+            onSelect(null);
+          }}
         >
           {layers.map((el) => {
             const selected = el.id === selectedId;
@@ -213,14 +247,16 @@ export default function CanvasBoard({
                   transform: `${el.flipX ? 'scaleX(-1) ' : ''}${el.rotation ? `rotate(${el.rotation}deg)` : ''}`.trim() || undefined,
                   zIndex: el.z || 1,
                   outline: selected ? '2px solid #C8102E' : 'none',
-                  cursor: el.locked ? 'default' : 'move',
+                  cursor: placeMode ? 'crosshair' : el.locked ? 'default' : 'move',
                   opacity: el.opacity == null ? 1 : el.opacity,
                   overflow: el.type === 'logo' ? 'visible' : undefined,
                 }}
                 onMouseDown={(e) => startDrag(e, el, 'move')}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  if (el.type === 'text' || el.type === 'emoji') onEditText?.(el.id);
+                  if (el.type === 'text' || el.type === 'emoji' || el.type === 'shape' || el.type === 'image') {
+                    onEditText?.(el.id);
+                  }
                 }}
               >
                 {el.type === 'shape' && (
@@ -306,7 +342,14 @@ export default function CanvasBoard({
               </div>
             );
           })}
+          <FrameOverlay frame={design.frame} width={design.format.w} height={design.format.h} />
         </div>
+      </div>
+      {blends && (
+        <p className="text-[10px] text-mute mt-2 tracking-wide">
+          Edge is editor-only — not in the download
+        </p>
+      )}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { drawEmoji, drawIcon } from './stickers';
 import { drawQr } from './qr';
 import { fullCaption, syncSlide } from './design';
+import { drawFrame } from './frame';
 
 function wrapLines(ctx, text, maxWidth) {
   const paragraphs = String(text || '').split('\n');
@@ -214,6 +215,8 @@ export async function exportDesignPng(design, { scale = 1, type = 'image/png', q
     ctx.restore();
   }
 
+  drawFrame(ctx, design);
+
   return canvas.toDataURL(type, quality);
 }
 
@@ -237,7 +240,7 @@ export async function exportCarouselZip(design, { scale = 2 } = {}) {
   const slug = (d.name || 'tychora-post').replace(/\s+/g, '-').toLowerCase();
   for (let i = 0; i < d.slides.length; i += 1) {
     const slide = d.slides[i];
-    const one = { ...d, background: slide.background, elements: slide.elements };
+    const one = { ...d, background: slide.background, elements: slide.elements, frame: slide.frame || d.frame };
     const url = await exportDesignPng(one, { scale, type: 'image/png' });
     zip.file(`${slug}-${String(i + 1).padStart(2, '0')}.png`, url.split(',')[1], { base64: true });
   }

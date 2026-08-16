@@ -1,4 +1,5 @@
 import { uid } from './brand';
+import { normalizeFrame } from './frame';
 
 function ensureSlides(design) {
   if (!design) return design;
@@ -14,7 +15,7 @@ function ensureSlides(design) {
   return {
     ...design,
     slideIndex: 0,
-    slides: [{ id: uid(), background: design.background, elements: design.elements || [] }],
+    slides: [{ id: uid(), background: design.background, elements: design.elements || [], frame: design.frame }],
     caption: design.caption || '',
     hashtags: design.hashtags || '',
   };
@@ -28,6 +29,7 @@ export function normalizeDesign(raw) {
     ...d,
     background: slide.background,
     elements: slide.elements,
+    frame: normalizeFrame(slide.frame || d.frame),
   };
 }
 
@@ -35,9 +37,9 @@ export function syncSlide(design) {
   const d = ensureSlides(design);
   const i = d.slideIndex || 0;
   const slides = d.slides.map((slide, idx) =>
-    idx === i ? { ...slide, background: d.background, elements: d.elements } : slide
+    idx === i ? { ...slide, background: d.background, elements: d.elements, frame: normalizeFrame(d.frame) } : slide
   );
-  return { ...d, slides };
+  return { ...d, slides, frame: normalizeFrame(d.frame) };
 }
 
 function scaleEls(elements, sx, sy) {
@@ -56,14 +58,22 @@ export function adaptFormat(design, size) {
   const d = syncSlide(design);
   const sx = size.w / d.format.w;
   const sy = size.h / d.format.h;
-  const slides = d.slides.map((slide) => ({ ...slide, elements: scaleEls(slide.elements, sx, sy) }));
   const i = d.slideIndex || 0;
+  const slides = d.slides.map((slide) => {
+    const f = normalizeFrame(slide.frame || d.frame);
+    return {
+      ...slide,
+      elements: scaleEls(slide.elements, sx, sy),
+      frame: { ...f, weight: Math.max(2, Math.round(f.weight * Math.min(sx, sy))) },
+    };
+  });
   return {
     ...d,
     format: { ...size },
     slides,
     elements: slides[i].elements,
     background: slides[i].background,
+    frame: slides[i].frame,
   };
 }
 
@@ -75,10 +85,11 @@ export function addSlide(design) {
     id: uid(),
     background: JSON.parse(JSON.stringify(current.background)),
     elements: JSON.parse(JSON.stringify(current.elements)).map((el) => ({ ...el, id: uid() })),
+    frame: normalizeFrame(current.frame || d.frame),
   };
   const slides = [...d.slides, copy];
   const i = slides.length - 1;
-  return { ...d, slides, slideIndex: i, background: copy.background, elements: copy.elements };
+  return { ...d, slides, slideIndex: i, background: copy.background, elements: copy.elements, frame: copy.frame };
 }
 
 export function duplicateSlide(design) {
@@ -90,14 +101,14 @@ export function removeSlide(design) {
   if (d.slides.length <= 1) return d;
   const slides = d.slides.filter((_, idx) => idx !== d.slideIndex);
   const i = Math.min(d.slideIndex, slides.length - 1);
-  return { ...d, slides, slideIndex: i, background: slides[i].background, elements: slides[i].elements };
+  return { ...d, slides, slideIndex: i, background: slides[i].background, elements: slides[i].elements, frame: normalizeFrame(slides[i].frame) };
 }
 
 export function goSlide(design, index) {
   const d = syncSlide(design);
   const i = Math.max(0, Math.min(index, d.slides.length - 1));
   const slide = d.slides[i];
-  return { ...d, slideIndex: i, background: slide.background, elements: slide.elements };
+  return { ...d, slideIndex: i, background: slide.background, elements: slide.elements, frame: normalizeFrame(slide.frame || d.frame) };
 }
 
 export function moveSlide(design, dir) {
