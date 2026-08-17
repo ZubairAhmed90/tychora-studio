@@ -4,6 +4,7 @@ import IconGlyph from './IconGlyph';
 import QrMark from './QrMark';
 import { canvasBlendsWithUi } from '../lib/frame';
 import FrameOverlay from './FrameOverlay';
+import VideoLayer from './VideoLayer';
 
 function LogoMark({ el }) {
   const inverted = el.inverted;
@@ -78,6 +79,8 @@ export default function CanvasBoard({
   onDragEnd,
   placeMode,
   onPlace,
+  playingId,
+  onTogglePlay,
 }) {
   const drag = useRef(null);
   const [over, setOver] = useState(false);
@@ -150,12 +153,12 @@ export default function CanvasBoard({
         e.preventDefault();
         setOver(false);
         const file = e.dataTransfer.files?.[0];
-        if (file && file.type.startsWith('image/')) onDropFile?.(file);
+        if (file && (file.type.startsWith('image/') || file.type.startsWith('video/'))) onDropFile?.(file);
       }}
     >
       {over && (
         <div className="absolute inset-0 z-20 bg-ink/40 text-paper flex items-center justify-center text-sm tracking-wide pointer-events-none">
-          Drop photo onto the canvas
+          Drop a photo or video onto the canvas
         </div>
       )}
       <div className="flex flex-col items-center shrink-0">
@@ -251,9 +254,16 @@ export default function CanvasBoard({
                   opacity: el.opacity == null ? 1 : el.opacity,
                   overflow: el.type === 'logo' ? 'visible' : undefined,
                 }}
-                onMouseDown={(e) => startDrag(e, el, 'move')}
+                onMouseDown={(e) => {
+                  if (playingId === el.id && e.target.closest('iframe, video, button')) return;
+                  startDrag(e, el, 'move');
+                }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
+                  if (el.type === 'video') {
+                    onTogglePlay?.(el.id);
+                    return;
+                  }
                   if (el.type === 'text' || el.type === 'emoji' || el.type === 'shape' || el.type === 'image') {
                     onEditText?.(el.id);
                   }
@@ -331,6 +341,17 @@ export default function CanvasBoard({
                   </div>
                 )}
                 {el.type === 'qr' && <QrMark el={el} />}
+                {el.type === 'video' && (
+                  <VideoLayer
+                    el={el}
+                    playing={playingId === el.id}
+                    onPlay={() => {
+                      onSelect(el.id);
+                      onTogglePlay?.(el.id, true);
+                    }}
+                    onPause={() => onTogglePlay?.(el.id, false)}
+                  />
+                )}
                 {selected && !el.locked && (
                   <button
                     type="button"

@@ -1,10 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { exportDesignPng } from '../lib/exportPng';
 import { fullCaption } from '../lib/design';
+import { designVideos } from '../lib/video';
+import { VideoPlayer } from './VideoLayer';
 
 export default function Preview({ design, onClose }) {
   const [img, setImg] = useState('');
+  const [play, setPlay] = useState(false);
   const caption = fullCaption(design);
+  const videos = useMemo(() => designVideos(design), [design]);
 
   useEffect(() => {
     let live = true;
@@ -35,10 +39,30 @@ export default function Preview({ design, onClose }) {
               </div>
             </div>
             {caption && <p className="px-3 py-2 text-sm whitespace-pre-wrap">{caption}</p>}
-            {img ? <img src={img} alt="" className="w-full" /> : <div className="h-40 bg-line/40" />}
+            {play && videos[0] ? (
+              <VideoPlayer el={videos[0]} autoPlay />
+            ) : img ? (
+              <img src={img} alt="" className="w-full" />
+            ) : (
+              <div className="h-40 bg-line/40" />
+            )}
             <p className="px-3 py-2 text-[11px] text-mute">Like · Comment · Repost · Send</p>
           </div>
-          <p className="text-xs text-mute mt-3">How the post reads on LinkedIn or Facebook. Copy the caption from Export.</p>
+          {videos.length > 0 && (
+            <div className="mt-3 flex gap-2">
+              <button type="button" className="border border-ink px-3 py-1.5 text-sm" onClick={() => setPlay((v) => !v)}>
+                {play ? 'Show still' : 'Play video'}
+              </button>
+              {videos.length > 1 && <p className="text-xs text-mute self-center">{videos.length} videos on this slide</p>}
+            </div>
+          )}
+          {play && videos.slice(1).map((el) => (
+            <div key={el.id} className="mt-3">
+              <p className="text-xs text-mute mb-1 truncate">{el.title || 'Video'}</p>
+              <VideoPlayer el={el} />
+            </div>
+          ))}
+          <p className="text-xs text-mute mt-3">How the post reads on LinkedIn or Facebook. Copy the caption from Export. Play is a preview — the download is still the image.</p>
         </div>
       </div>
     </div>

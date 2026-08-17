@@ -32,7 +32,7 @@ function Mini({ design }) {
                 width: el.w,
                 height: el.h,
                 opacity: el.opacity,
-                background: el.type === 'shape' ? el.fill : el.type === 'image' ? '#1C2026' : 'transparent',
+                background: el.type === 'shape' ? el.fill : el.type === 'image' || el.type === 'video' ? '#1C2026' : 'transparent',
                 borderRadius: el.shape === 'circle' ? 999 : el.radius || 0,
                 color: el.color,
                 fontSize: el.fontSize,
@@ -41,6 +41,7 @@ function Mini({ design }) {
             >
               {el.type === 'text' ? <span className="block leading-tight">{el.content}</span> : null}
               {el.type === 'image' && el.src ? <img src={el.src} alt="" className="w-full h-full object-cover" /> : null}
+              {el.type === 'video' && (el.poster ? <img src={el.poster} alt="" className="w-full h-full object-cover" /> : null)}
               {el.type === 'icon' ? <IconGlyph name={el.icon} color={el.color || '#12151A'} className="w-full h-full" /> : null}
               {el.type === 'qr' ? <div className="w-full h-full" style={{ background: el.bg || '#F7F5F1' }} /> : null}
             </div>

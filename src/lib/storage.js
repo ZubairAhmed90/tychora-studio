@@ -1,4 +1,5 @@
 import { normalizeDesign } from './design';
+import { stripVideoBlobs } from './video';
 
 const KEY = 'tychora-studio-posts';
 export const MAX_SAVED = 10;
@@ -14,7 +15,7 @@ export function loadPosts() {
 }
 
 export function savePosts(list) {
-  localStorage.setItem(KEY, JSON.stringify(list.slice(0, MAX_SAVED)));
+  localStorage.setItem(KEY, JSON.stringify(list.slice(0, MAX_SAVED).map(stripVideoBlobs)));
 }
 
 export function upsertPost(post) {

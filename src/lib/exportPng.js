@@ -212,6 +212,55 @@ export async function exportDesignPng(design, { scale = 1, type = 'image/png', q
       drawQr(ctx, el);
     }
 
+    if (el.type === 'video') {
+      ctx.save();
+      roundRect(ctx, el.x, el.y, el.w, el.h, el.radius || 0);
+      ctx.clip();
+      ctx.fillStyle = '#12151A';
+      ctx.fillRect(el.x, el.y, el.w, el.h);
+      if (el.poster) {
+        try {
+          const img = await loadImage(el.poster);
+          const fit = el.fit || 'cover';
+          if (fit === 'contain') {
+            const scaleFit = Math.min(el.w / img.width, el.h / img.height);
+            const dw = img.width * scaleFit;
+            const dh = img.height * scaleFit;
+            ctx.drawImage(img, el.x + (el.w - dw) / 2, el.y + (el.h - dh) / 2, dw, dh);
+          } else {
+            const scaleCover = Math.max(el.w / img.width, el.h / img.height);
+            const dw = img.width * scaleCover;
+            const dh = img.height * scaleCover;
+            ctx.drawImage(img, el.x + (el.w - dw) / 2, el.y + (el.h - dh) / 2, dw, dh);
+          }
+        } catch {
+          /* ink fill */
+        }
+      }
+      const r = Math.min(36, Math.round(Math.min(el.w, el.h) * 0.12));
+      ctx.fillStyle = '#C8102E';
+      ctx.beginPath();
+      ctx.arc(el.x + el.w / 2, el.y + el.h / 2, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#F7F5F1';
+      ctx.beginPath();
+      ctx.moveTo(el.x + el.w / 2 - r * 0.28, el.y + el.h / 2 - r * 0.42);
+      ctx.lineTo(el.x + el.w / 2 - r * 0.28, el.y + el.h / 2 + r * 0.42);
+      ctx.lineTo(el.x + el.w / 2 + r * 0.48, el.y + el.h / 2);
+      ctx.closePath();
+      ctx.fill();
+      if (el.showTitle !== false && el.title) {
+        ctx.fillStyle = 'rgba(18,21,26,0.7)';
+        ctx.fillRect(el.x, el.y + el.h - 36, el.w, 36);
+        ctx.fillStyle = '#F7F5F1';
+        ctx.font = '500 14px "IBM Plex Sans", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(el.title).slice(0, 64), el.x + 12, el.y + el.h - 18, el.w - 24);
+      }
+      ctx.restore();
+    }
+
     ctx.restore();
   }
 

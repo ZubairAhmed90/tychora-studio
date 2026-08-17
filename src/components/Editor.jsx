@@ -5,6 +5,13 @@ import { adaptFormat, addSlide, fullCaption, goSlide, moveSlide, normalizeDesign
 import { copyPngToClipboard, downloadDataUrl, exportCarouselZip, exportDesignPng, fileToDataUrl } from '../lib/exportPng';
 import { EMOJI_GROUPS, ICONS, firstGrapheme } from '../lib/stickers';
 import { FRAME_STYLES, normalizeFrame } from '../lib/frame';
+import {
+  MAX_VIDEO_MB,
+  captureVideoPoster,
+  hydrateDesignVideos,
+  putVideoBlob,
+  resolveVideoLink,
+} from '../lib/video';
 import CanvasBoard from './CanvasBoard';
 import CropModal from './CropModal';
 import GalleryPanel from './GalleryPanel';
@@ -39,20 +46,36 @@ export default function Editor({ design: initial, onBack, onSaved }) {
   const [customW, setCustomW] = useState(design.format.w);
   const [customH, setCustomH] = useState(design.format.h);
   const [place, setPlace] = useState(null);
+  const [videoLink, setVideoLink] = useState('');
+  const [videoBusy, setVideoBusy] = useState(false);
+  const [playingId, setPlayingId] = useState(null);
   const placeRef = useRef(null);
   placeRef.current = place;
   const history = useRef([normalizeDesign(initial)]);
   const histIndex = useRef(0);
   const fileRef = useRef(null);
+  const videoFileRef = useRef(null);
   const bgFileRef = useRef(null);
   const clipRef = useRef(null);
   const designRef = useRef(design);
   designRef.current = design;
 
   useEffect(() => {
-    setDesign(normalizeDesign(initial));
-    history.current = [normalizeDesign(initial)];
+    let live = true;
+    const base = normalizeDesign(initial);
+    setDesign(base);
+    history.current = [base];
     histIndex.current = 0;
+    setPlayingId(null);
+    hydrateDesignVideos(base).then((d) => {
+      if (!live) return;
+      setDesign(d);
+      history.current = [d];
+      histIndex.current = 0;
+    });
+    return () => {
+      live = false;
+    };
   }, [initial.id]);
 
   const push = (next) => {
@@ -144,7 +167,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
   const queueAdd = (el, opts = {}) => {
     const d = designRef.current;
     const host = (d.elements || []).find((item) => item.id === selectedId);
-    if (opts.attach !== false && host && (host.type === 'shape' || host.type === 'image') && el.type !== 'shape') {
+    if (opts.attach !== false && host && (host.type === 'shape' || host.type === 'image') && el.type !== 'shape' && el.type !== 'video') {
       dropOnHost(el, host, opts.fitWidth);
       return;
     }
@@ -254,6 +277,117 @@ export default function Editor({ design: initial, onBack, onSaved }) {
       rotation: 0,
       fit: 'cover',
     }, { label: 'photo' });
+  };
+
+  const togglePlay = (id, force) => {
+    setSelectedId(id);
+    setPlayingId((cur) => {
+      if (force === true) return id;
+      if (force === false) return cur === id ? null : cur;
+      return cur === id ? null : id;
+    });
+  };
+
+  const addVideoEl = (partial) => {
+    const d = designRef.current;
+    const portrait = partial.aspect === 'portrait' || d.format.h >= d.format.w * 1.2;
+    const w = Math.round(d.format.w * 0.84);
+    const ratio = portrait ? 16 / 9 : 9 / 16;
+    const h = Math.min(Math.round(d.format.h * 0.72), Math.round(w * ratio));
+    addEl({
+      id: uid(),
+      type: 'video',
+      x: Math.round((d.format.w - w) / 2),
+      y: Math.round((d.format.h - h) / 2),
+      w,
+      h,
+      rotation: 0,
+      fit: 'cover',
+      showTitle: true,
+      muted: false,
+      loop: false,
+      ...partial,
+    });
+    setPlayingId(null);
+  };
+
+  const addVideoFromLink = async (raw) => {
+    const link = (raw || videoLink).trim();
+    if (!link) {
+      flash('Paste a YouTube, Vimeo, or .mp4 link');
+      return;
+    }
+    setVideoBusy(true);
+    try {
+      const info = await resolveVideoLink(link);
+      addVideoEl({
+        provider: info.provider,
+        videoId: info.videoId,
+        pageUrl: info.pageUrl,
+        embedUrl: info.embedUrl,
+        src: info.src || '',
+        poster: info.poster || '',
+        title: info.title || '',
+        aspect: info.aspect,
+      });
+      setVideoLink('');
+      flash(info.title ? `Got “${info.title.slice(0, 42)}” — press play` : 'Video added — press play');
+    } catch (err) {
+      flash(err.message || 'Could not read that link');
+    } finally {
+      setVideoBusy(false);
+    }
+  };
+
+  const addVideoFromFile = async (file) => {
+    if (!file || !file.type.startsWith('video/')) {
+      flash('Choose a video file');
+      return;
+    }
+    if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+      flash(`Keep the file under ${MAX_VIDEO_MB} MB`);
+      return;
+    }
+    setVideoBusy(true);
+    try {
+      const mediaId = uid();
+      await putVideoBlob(mediaId, file);
+      const src = URL.createObjectURL(file);
+      const poster = await captureVideoPoster(file);
+      const patch = {
+        provider: 'file',
+        mediaId,
+        src,
+        poster,
+        title: file.name.replace(/\.[^.]+$/, ''),
+        aspect: 'landscape',
+        videoId: '',
+        pageUrl: '',
+        embedUrl: '',
+      };
+      const current = (designRef.current.elements || []).find((item) => item.id === selectedId);
+      if (current?.type === 'video') {
+        patchEl(current.id, patch);
+        flash('Video replaced — press play');
+        setPlayingId(null);
+      } else {
+        addVideoEl(patch);
+        flash('Video uploaded — press play');
+      }
+    } catch {
+      flash('Could not store that video on this computer');
+    } finally {
+      setVideoBusy(false);
+    }
+  };
+
+  const addMediaFromFile = async (file) => {
+    if (!file) return;
+    if (file.type.startsWith('video/')) {
+      await addVideoFromFile(file);
+      return;
+    }
+    if (file.type.startsWith('image/')) await addImageFromFile(file);
   };
 
   const setBgPhoto = (src) => {
@@ -437,6 +571,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
       }
       if (e.key === 'Escape') {
         setPlace(null);
+        setPlayingId(null);
         return;
       }
       if (e.key === '?' || e.key === 'F1') {
@@ -546,6 +681,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
             onClick={() => {
               push(goSlide(design, i));
               setSelectedId(null);
+              setPlayingId(null);
             }}
           >
             {i + 1}
@@ -583,6 +719,30 @@ export default function Editor({ design: initial, onBack, onSaved }) {
             <button type="button" className={toolBtn} onClick={() => fileRef.current?.click()}>
               Photo
             </button>
+            <div className="border border-line p-2 mt-0.5">
+              <p className="text-[10px] tracking-[0.16em] uppercase text-mute mb-1.5">Video</p>
+              <input
+                className="w-full border border-line px-2 py-1.5 bg-transparent text-xs mb-1.5"
+                placeholder="YouTube, Vimeo, or .mp4 link"
+                value={videoLink}
+                onChange={(e) => setVideoLink(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addVideoFromLink();
+                  }
+                }}
+              />
+              <div className="flex gap-1">
+                <button type="button" className="flex-1 border border-ink text-xs py-1.5" disabled={videoBusy} onClick={() => addVideoFromLink()}>
+                  {videoBusy ? 'Getting…' : 'Get'}
+                </button>
+                <button type="button" className="flex-1 border border-line text-xs py-1.5" disabled={videoBusy} onClick={() => videoFileRef.current?.click()}>
+                  Upload
+                </button>
+              </div>
+              <p className="text-[10px] text-mute mt-1.5 leading-snug">Fetches title and thumbnail. Play on the canvas or in Preview. PNG export uses the still.</p>
+            </div>
             <button type="button" className={toolBtn} onClick={() => addShape('rect')}>
               Bar
             </button>
@@ -626,6 +786,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
           <StickerPanel onAddIcon={addIcon} onAddEmoji={addEmoji} />
           <GalleryPanel onAddPhoto={addPhoto} onBackground={setBgPhoto} />
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) addImageFromFile(f); }} />
+          <input ref={videoFileRef} type="file" accept="video/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) addVideoFromFile(f); }} />
           <input ref={bgFileRef} type="file" accept="image/*" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; const src = await fileToDataUrl(f); push({ ...design, background: { ...design.background, image: src } }); }} />
 
           <p className="text-[10px] tracking-[0.2em] uppercase text-mute mt-5 mb-2">Brand lines</p>
@@ -798,7 +959,9 @@ export default function Editor({ design: initial, onBack, onSaved }) {
           guides={guides}
           placeMode={!!place}
           onPlace={placeAt}
-          onDropFile={addImageFromFile}
+          playingId={playingId}
+          onTogglePlay={togglePlay}
+          onDropFile={addMediaFromFile}
           onEditText={(id) => {
             const el = (designRef.current.elements || []).find((item) => item.id === id);
             if (!el) return;
@@ -1061,6 +1224,75 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                   </div>
                 </>
               )}
+              {selected.type === 'video' && (
+                <>
+                  <button
+                    type="button"
+                    className="w-full border border-ink py-2"
+                    onClick={() => togglePlay(selected.id)}
+                  >
+                    {playingId === selected.id ? 'Pause' : 'Play preview'}
+                  </button>
+                  <label className="text-xs text-mute block">Link
+                    <input
+                      className="w-full border border-line px-2 py-1 bg-transparent"
+                      value={selected.pageUrl || selected.src || ''}
+                      onChange={(e) => patchEl(selected.id, { pageUrl: e.target.value })}
+                      onBlur={async (e) => {
+                        const next = e.target.value.trim();
+                        if (!next || next === selected.pageUrl) return;
+                        try {
+                          const info = await resolveVideoLink(next);
+                          patchEl(selected.id, {
+                            provider: info.provider,
+                            videoId: info.videoId,
+                            pageUrl: info.pageUrl,
+                            embedUrl: info.embedUrl,
+                            src: info.src || '',
+                            poster: info.poster || selected.poster,
+                            title: info.title || selected.title,
+                            aspect: info.aspect,
+                            mediaId: undefined,
+                          });
+                          flash('Updated from link');
+                        } catch (err) {
+                          flash(err.message || 'Could not read that link');
+                        }
+                      }}
+                    />
+                  </label>
+                  <label className="text-xs text-mute block">Title
+                    <input
+                      className="w-full border border-line px-2 py-1 bg-transparent"
+                      value={selected.title || ''}
+                      onChange={(e) => patchEl(selected.id, { title: e.target.value })}
+                    />
+                  </label>
+                  <button type="button" className="w-full border border-line py-2" onClick={() => videoFileRef.current?.click()}>
+                    Replace with upload
+                  </button>
+                  <div className="flex gap-1">
+                    <button type="button" className="flex-1 border border-line py-1" onClick={() => patchEl(selected.id, { fit: 'cover' })}>Fill</button>
+                    <button type="button" className="flex-1 border border-line py-1" onClick={() => patchEl(selected.id, { fit: 'contain' })}>Fit</button>
+                  </div>
+                  <label className="text-xs text-mute block">Corner
+                    <input type="range" min="0" max="80" className="w-full" value={selected.radius || 0} onChange={(e) => patchEl(selected.id, { radius: Number(e.target.value) })} />
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={selected.showTitle !== false} onChange={(e) => patchEl(selected.id, { showTitle: e.target.checked })} />
+                    Show title on still
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={!!selected.muted} onChange={(e) => patchEl(selected.id, { muted: e.target.checked })} />
+                    Mute (uploaded / mp4)
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={!!selected.loop} onChange={(e) => patchEl(selected.id, { loop: e.target.checked })} />
+                    Loop (uploaded / mp4)
+                  </label>
+                  <p className="text-[10px] text-mute">YouTube and Vimeo play in Preview and on the canvas. Export PNG / JPG is the thumbnail still.</p>
+                </>
+              )}
               {selected.type === 'image' && (
                 <>
                   <button type="button" className="w-full border border-line py-2" onClick={() => fileRef.current?.click()}>Replace photo</button>
@@ -1200,7 +1432,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                 >
                   {el.hidden ? '(hidden) ' : ''}
                   {el.locked ? '🔒 ' : ''}
-                  {el.type === 'text' ? el.content.slice(0, 28) : el.type === 'emoji' ? el.content : el.type === 'icon' ? `icon · ${el.icon}` : el.type === 'qr' ? 'QR' : el.type}
+                  {el.type === 'text' ? el.content.slice(0, 28) : el.type === 'emoji' ? el.content : el.type === 'icon' ? `icon · ${el.icon}` : el.type === 'qr' ? 'QR' : el.type === 'video' ? `video · ${(el.title || el.provider || 'clip').slice(0, 22)}` : el.type}
                 </button>
                 <button
                   type="button"
@@ -1248,6 +1480,8 @@ export default function Editor({ design: initial, onBack, onSaved }) {
               <li>Export → Carousel zip for all slides + caption</li>
               <li>QR code: website or email, drag and resize</li>
               <li>Photo: Crop, then drag to frame</li>
+              <li>Video: paste a YouTube / Vimeo / mp4 link and Get, or Upload</li>
+              <li>Play on the canvas or in Preview. Esc pauses. PNG is the still</li>
               <li>White / paper canvas: editor edge is not exported</li>
               <li>Frame styles in the left panel export with the image</li>
             </ul>
