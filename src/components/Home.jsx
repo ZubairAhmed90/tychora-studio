@@ -55,18 +55,25 @@ export default function Home({ posts, onNew, onOpen, onDelete, onDuplicate }) {
   const [platform, setPlatform] = useState('All');
   const [customW, setCustomW] = useState(1080);
   const [customH, setCustomH] = useState(1080);
-  const platforms = ['All', ...new Set(SIZES.map((s) => s.platform))];
+  const platforms = ['All', ...new Set(SIZES.map((s) => s.platform)), 'Video'];
 
   const templates = useMemo(() => {
     return TEMPLATES.filter((tpl) => {
       const size = SIZES.find((s) => s.id === tpl.sizeId);
-      const hit = !query || `${tpl.name} ${tpl.blurb}`.toLowerCase().includes(query.toLowerCase());
-      const plat = platform === 'All' || size?.platform === platform;
+      const hit = !query || `${tpl.name} ${tpl.blurb} ${tpl.topic || ''}`.toLowerCase().includes(query.toLowerCase());
+      const plat =
+        platform === 'All' ||
+        (platform === 'Video' && tpl.topic === 'video') ||
+        (platform !== 'Video' && size?.platform === platform);
       return hit && plat;
     });
   }, [query, platform]);
 
-  const sizes = SIZES.filter((s) => platform === 'All' || s.platform === platform);
+  const sizes = SIZES.filter((s) => {
+    if (platform === 'All') return true;
+    if (platform === 'Video') return ['story', 'youtube', 'instagram', 'linkedin'].includes(s.id);
+    return s.platform === platform;
+  });
 
   return (
     <div className="min-h-full">
@@ -82,7 +89,7 @@ export default function Home({ posts, onNew, onOpen, onDelete, onDuplicate }) {
             <span className="mx-[0.08em] mb-[0.1em] inline-block w-[0.55em] h-[0.55em] rounded-full bg-primary-600 align-middle" />
             RA STUDIO
           </p>
-          <p className="text-[10px] tracking-[0.22em] uppercase text-mute">Posts for LinkedIn, Facebook, Instagram</p>
+          <p className="text-[10px] tracking-[0.22em] uppercase text-mute">Posts and video covers for LinkedIn, Instagram, YouTube</p>
         </div>
         <input
           value={query}
@@ -96,7 +103,7 @@ export default function Home({ posts, onNew, onOpen, onDelete, onDuplicate }) {
         <p className="text-xs tracking-[0.2em] uppercase text-primary-600 mb-3">Start</p>
         <h1 className="font-serif text-4xl md:text-5xl mb-3">Make a post. Keep it on brand.</h1>
         <p className="text-mute max-w-xl mb-8">
-          Pick a size, drop in a photo, write the line and a caption. Save up to {MAX_SAVED} drafts on this computer. Export PNG, JPG, or copy the image.
+          Pick a size, drop in a photo, write the line and a caption. Video covers are stills for Reels, Stories, and YouTube — replace the portrait, keep the play mark. Save up to {MAX_SAVED} drafts on this computer.
         </p>
 
         <div className="flex flex-wrap gap-2 mb-8">

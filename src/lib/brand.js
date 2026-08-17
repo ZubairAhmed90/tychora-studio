@@ -15,6 +15,7 @@ export const SIZES = [
   { id: 'ig-portrait', label: 'Instagram portrait', platform: 'Instagram', w: 1080, h: 1350 },
   { id: 'story', label: 'Story / Reel cover', platform: 'Instagram', w: 1080, h: 1920 },
   { id: 'x', label: 'X / Twitter', platform: 'X', w: 1600, h: 900 },
+  { id: 'youtube', label: 'YouTube thumbnail', platform: 'YouTube', w: 1280, h: 720 },
 ];
 
 export const COLORS = [INK, PAPER, WHITE, RED, MUTE, LINE, ACCENT, '#2F6B4F', '#1C2026'];
@@ -55,6 +56,21 @@ export const CAPTIONS = [
     name: 'Welcome',
     body: 'Welcome to the team.\n\nA compact Karachi office. You sit with the people who ship.\n\ntychora.com',
     tags: '#Tychora #Team #Karachi',
+  },
+  {
+    name: 'Interview',
+    body: 'A short conversation on how the work actually runs.\n\nWatch, then write to us if you want the same for your team.\nhello@tychora.com',
+    tags: '#Tychora #Interview #Software #Karachi',
+  },
+  {
+    name: 'Feedback',
+    body: 'What a client said, in their words.\n\nThey sat with how we already work. Then they built the system around that.\nhello@tychora.com',
+    tags: '#Tychora #ClientFeedback #CRM',
+  },
+  {
+    name: 'Explainer',
+    body: 'A short video on what the software actually does.\n\nLeads, follow-ups, and history. Not spreadsheets.\nhello@tychora.com',
+    tags: '#Tychora #CRM #Explainer',
   },
 ];
 
