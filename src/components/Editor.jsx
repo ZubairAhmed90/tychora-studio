@@ -288,28 +288,43 @@ export default function Editor({ design: initial, onBack, onSaved }) {
     });
   };
 
-  const addVideoEl = (partial) => {
+  const placeVideoOnCanvas = (partial) => {
     const d = designRef.current;
-    const portrait = partial.aspect === 'portrait' || d.format.h >= d.format.w * 1.2;
-    const w = Math.round(d.format.w * 0.84);
-    const ratio = portrait ? 16 / 9 : 9 / 16;
-    const h = Math.min(Math.round(d.format.h * 0.72), Math.round(w * ratio));
-    addEl({
-      id: uid(),
+    const els = Array.isArray(d.elements) ? d.elements : [];
+    const existing = els.find((el) => el.id === selectedId && el.type === 'video') || els.find((el) => el.type === 'video');
+    const kept = els.filter((el) => {
+      if (el.type === 'image' || el.type === 'video') return false;
+      if (el.type === 'icon' && el.icon === 'play') return false;
+      if (el.type === 'shape' && el.shape === 'circle' && (el.w || 0) <= 220 && Math.abs((el.w || 0) - (el.h || 0)) < 12) return false;
+      return true;
+    });
+    const video = {
+      id: existing?.id || uid(),
       type: 'video',
-      x: Math.round((d.format.w - w) / 2),
-      y: Math.round((d.format.h - h) / 2),
-      w,
-      h,
       rotation: 0,
       fit: 'cover',
-      showTitle: true,
       muted: false,
       loop: false,
+      ...existing,
       ...partial,
-    });
+      showTitle: partial.showTitle != null ? partial.showTitle : false,
+      x: 0,
+      y: 0,
+      w: d.format.w,
+      h: d.format.h,
+      z: 1,
+      opacity: 1,
+      locked: false,
+    };
+    const rest = kept.map((el) => ({ ...el, z: Math.max(2, el.z || 2) }));
+    push({ ...d, elements: [video, ...rest] });
+    setSelectedId(video.id);
+    setPlace(null);
     setPlayingId(null);
+    return video;
   };
+
+  const addVideoEl = (partial) => placeVideoOnCanvas(partial);
 
   const addVideoFromLink = async (raw) => {
     const link = (raw || videoLink).trim();
@@ -331,7 +346,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
         aspect: info.aspect,
       });
       setVideoLink('');
-      flash(info.title ? `Got “${info.title.slice(0, 42)}” — press play` : 'Video added — press play');
+      flash(info.title ? `Fitted to the canvas — “${info.title.slice(0, 36)}”` : 'Fitted to the canvas — press play');
     } catch (err) {
       flash(err.message || 'Could not read that link');
     } finally {
@@ -365,15 +380,8 @@ export default function Editor({ design: initial, onBack, onSaved }) {
         pageUrl: '',
         embedUrl: '',
       };
-      const current = (designRef.current.elements || []).find((item) => item.id === selectedId);
-      if (current?.type === 'video') {
-        patchEl(current.id, patch);
-        flash('Video replaced — press play');
-        setPlayingId(null);
-      } else {
-        addVideoEl(patch);
-        flash('Video uploaded — press play');
-      }
+      addVideoEl(patch);
+      flash('Fitted to the canvas — press play');
     } catch {
       flash('Could not store that video on this computer');
     } finally {
@@ -741,7 +749,7 @@ export default function Editor({ design: initial, onBack, onSaved }) {
                   Upload
                 </button>
               </div>
-              <p className="text-[10px] text-mute mt-1.5 leading-snug">Fetches title and thumbnail. Play on the canvas or in Preview. PNG export uses the still.</p>
+              <p className="text-[10px] text-mute mt-1.5 leading-snug">Fills this canvas and removes the placeholder photo. Play on the board. PNG is the still.</p>
             </div>
             <button type="button" className={toolBtn} onClick={() => addShape('rect')}>
               Bar
